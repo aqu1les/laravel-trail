@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+declare(strict_types=1);
+
 function supportsAnsi(): bool
 {
     if (getenv('NO_COLOR') !== false) {
