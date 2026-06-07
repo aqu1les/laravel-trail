@@ -24,7 +24,7 @@ class AssetController
         'tokens/typography.css',
         'tokens/foundations.css',
         'components.css',
-        // tokens/theme.css is the Tailwind `@theme` bridge — only
+        // tokens/theme.css is the Tailwind `@theme` bridge - only
         // meaningful inside a real Tailwind build, ignored here.
     ];
 

@@ -30,11 +30,11 @@ trait ResolvesEvents
     protected function subjectLabel(TrailEvent $event): array
     {
         if ($event->subject_type === null && $event->subject_id === null) {
-            return ['name' => 'Anônimo', 'type' => 'Anônimo', 'id' => '—'];
+            return ['name' => 'Anônimo', 'type' => 'Anônimo', 'id' => '-'];
         }
 
         $type = $event->subject_type ? class_basename($event->subject_type) : 'Anônimo';
-        $id = $event->subject_id !== null ? (string) $event->subject_id : '—';
+        $id = $event->subject_id !== null ? (string) $event->subject_id : '-';
 
         $subject = $event->relationLoaded('subject') ? $event->getRelation('subject') : null;
         $name = $subject->name ?? $subject->email ?? "{$type} #{$id}";

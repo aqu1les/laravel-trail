@@ -9,7 +9,7 @@ use Illuminate\Contracts\View\View;
 class DashboardController
 {
     /**
-     * Design System — the navigable token + component showcase.
+     * Design System - the navigable token + component showcase.
      *
      * The data screens (Overview, Events, Subject Timeline) are full-page
      * Livewire components wired directly in routes/web.php.

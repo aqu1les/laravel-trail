@@ -1,4 +1,4 @@
-# Trail — Specification
+# Trail - Specification
 
 > Repository reference document. Describes what Trail is, every requirement, and the current
 > implementation status. For a usage-oriented guide see [README.md](README.md).
@@ -14,7 +14,7 @@ Status legend: ✅ shipped · 🚧 partial · ⏳ planned
 
 Trail is a publishable Laravel package for **user-behavior tracking**: recording events, journeys,
 and actions over time. You install it via Composer, run one migration, and you are tracking and
-visualizing behaviour — without building any reporting yourself, and without any data leaving your
+visualizing behaviour - without building any reporting yourself, and without any data leaving your
 servers.
 
 One line records an event:
@@ -25,14 +25,14 @@ Trail::track('order.placed', ['order_id' => $order->id], value: $order->total);
 
 ## 2. Design principles
 
-- **Convention over configuration** — works out of the box with `App\Models\User`; everything is
+- **Convention over configuration** - works out of the box with `App\Models\User`; everything is
   overridable through the published config.
-- **Polymorphic actor** — the tracked subject is a `morphTo`; default `App\Models\User`, but any
+- **Polymorphic actor** - the tracked subject is a `morphTo`; default `App\Models\User`, but any
   model (Team, Company, Customer) works with no schema change.
-- **Your database, your rules** — stored on the app's default connection; configurable to another.
-- **Configurable write mode** — synchronous, queued, or batched ingest.
-- **Embedded dashboard** — server-rendered with Blade + Livewire, protected by a gate.
-- **Privacy first** — IP anonymized by default; only event *metadata* is stored, never content.
+- **Your database, your rules** - stored on the app's default connection; configurable to another.
+- **Configurable write mode** - synchronous, queued, or batched ingest.
+- **Embedded dashboard** - server-rendered with Blade + Livewire, protected by a gate.
+- **Privacy first** - IP anonymized by default; only event *metadata* is stored, never content.
 
 ## 3. Requirements
 
@@ -158,9 +158,9 @@ Unique: `(period, bucket, name)`. Recomputed idempotently via `upsert`.
 Selected by `config('trail.recorder')`, overridable per call. Resolved through `RecorderManager`
 (extends `Illuminate\Support\Manager`), so consumers can register custom drivers via `extend()`.
 
-- **`sync`** — writes inside the request. Simplest; adds latency.
-- **`queue`** — dispatches `ProcessTrailEvent` onto the configured connection/queue. Recommended default.
-- **`ingest`** — `EventBuffer` accumulates rows and flushes in a single bulk `insert` at `flush_at`
+- **`sync`** - writes inside the request. Simplest; adds latency.
+- **`queue`** - dispatches `ProcessTrailEvent` onto the configured connection/queue. Recommended default.
+- **`ingest`** - `EventBuffer` accumulates rows and flushes in a single bulk `insert` at `flush_at`
   or on app `terminating()`. In-memory today; Redis buffer is ⏳.
 
 ## 8. Dashboard, routes & authorization
@@ -175,7 +175,7 @@ Routes auto-registered under `config('trail.path')` (default `/trail`) with
 | `GET /trail/api/metrics` | `range`, `total_events`, `unique_subjects`, `top_events`, `series` (`period` param) |
 | `GET /trail/api/funnel` | `steps[]` → per-step `count`/`rate`/`drop_off` + `overall_conversion` |
 
-**Authorization** — Horizon/Telescope-style. Define the gate from a service provider:
+**Authorization** - Horizon/Telescope-style. Define the gate from a service provider:
 
 ```php
 use Trail\Trail\Trail;
@@ -194,13 +194,13 @@ Default (no callback): allowed only in the `local` environment. A failing gate r
 
 `config('trail.privacy')`:
 
-- `anonymize_ip` (default `true`) — zero the last IPv4 octet / keep only the IPv6 /48.
-- `store_ip` (default `false`) — IP is not stored at all unless enabled.
+- `anonymize_ip` (default `true`) - zero the last IPv4 octet / keep only the IPv6 /48.
+- `store_ip` (default `false`) - IP is not stored at all unless enabled.
 - `store_user_agent` (default `true`).
 
 `ContextCapture` enriches `context` only for a **routed HTTP request** (never console/queue). Only
 event metadata is recorded; message/content bodies are never stored. Whatever lands in `properties`
-is supplied by the caller — keep PII out of it.
+is supplied by the caller - keep PII out of it.
 
 ## 10. Aggregation, retention & commands
 
@@ -269,25 +269,25 @@ src/
 ## 14. Quality & testing
 
 - Pest (Testbench base, in-memory SQLite). Run: `composer test`.
-- Static analysis: PHPStan level 5 via Larastan — zero errors.
+- Static analysis: PHPStan level 5 via Larastan - zero errors.
 - Style: Laravel Pint with `declare(strict_types=1)` enforced on every file.
-- CI matrix: PHP 8.3–8.5 × Laravel 11/12/13 × prefer-lowest/stable.
+- CI matrix: PHP 8.3-8.5 × Laravel 11/12/13 × prefer-lowest/stable.
 - A Workbench harness (`vendor/bin/testbench serve`) runs the dashboard with ~2k seeded events for
   manual/visual development.
 
 ## 15. Roadmap
 
-- **v0.1 (current)** — events + sync/queue/ingest recorders, polymorphic actor + trait,
+- **v0.1 (current)** - events + sync/queue/ingest recorders, polymorphic actor + trait,
   auto-registered routes, JSON API, read helpers, aggregation/retention commands, privacy-aware
   context, auth gate.
-- **v0.2** — Blade + Livewire dashboard screens (Overview, Events explorer, Funnels, Subject
+- **v0.2** - Blade + Livewire dashboard screens (Overview, Events explorer, Funnels, Subject
   timeline); Redis ingest buffer; opt-in page-view tracking wired through config.
-- **v1.0** — pluggable storage drivers (optional ClickHouse) + documented partitioning; full CI
+- **v1.0** - pluggable storage drivers (optional ClickHouse) + documented partitioning; full CI
   matrix; Packagist release.
 
 ## 16. Decisions of record
 
-- Placeholder brand `Trail` / namespace `Trail\Trail` / config+tables+routes prefix `trail` — kept
+- Placeholder brand `Trail` / namespace `Trail\Trail` / config+tables+routes prefix `trail` - kept
   consistent and easy to rename.
 - Dashboard UI is **Blade + Livewire**, not a compiled Vue SPA (supersedes earlier plans).
 - ClickHouse and partitioning are out of v1 (documented evolution).

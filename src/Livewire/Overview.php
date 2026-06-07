@@ -7,6 +7,7 @@ namespace Trail\Trail\Livewire;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
+use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
 
@@ -41,7 +42,7 @@ class Overview extends Component
     {
         [$labels, $counts, $total] = $this->realSeries();
 
-        $topEventRows = TrailEvent::query()
+        $topEventRows = Trail::events()->toBuilder()->reorder()
             ->selectRaw('name, count(*) as aggregate')
             ->groupBy('name')->orderByDesc('aggregate')->limit(6)->get();
         $maxTop = (int) ($topEventRows->max('aggregate') ?: 1);
@@ -51,15 +52,15 @@ class Overview extends Component
             'pct' => (int) round((int) $r->aggregate / $maxTop * 100),
         ])->all();
 
-        $totalEvents = TrailEvent::query()->count();
-        $uniqueSubjects = TrailEvent::query()->whereNotNull('subject_id')->distinct()->count('subject_id');
-        $todayEvents = TrailEvent::query()->where('occurred_at', '>=', Carbon::today())->count();
+        $totalEvents = Trail::events()->count();
+        $uniqueSubjects = Trail::events()->toBuilder()->reorder()->whereNotNull('subject_id')->distinct()->count('subject_id');
+        $todayEvents = Trail::events()->today();
 
         $metrics = [
             ['label' => 'Total de eventos', 'value' => $this->humanize($totalEvents), 'sub' => 'desde o início',
                 'sparkPts' => count($counts) > 1 ? self::spark($counts) : null, 'accent' => true],
             ['label' => 'Atores únicos ativos', 'value' => $this->humanize($uniqueSubjects), 'sub' => 'com eventos'],
-            ['label' => 'Evento mais frequente', 'value' => $topEventRows->first()->name ?? '—', 'mono' => true,
+            ['label' => 'Evento mais frequente', 'value' => $topEventRows->first()->name ?? '-', 'mono' => true,
                 'sub' => $topEventRows->first() ? $this->humanize((int) $topEventRows->first()->aggregate).' disparos' : 'sem eventos'],
             ['label' => 'Eventos hoje', 'value' => $this->humanize($todayEvents), 'sub' => 'últimas 24h'],
         ];
@@ -90,8 +91,7 @@ class Overview extends Component
 
         $since = (clone $now)->{$step}($count - 1)->startOf($this->granularity === 'Hora' ? 'hour' : ($this->granularity === 'Semana' ? 'week' : 'day'));
 
-        TrailEvent::query()
-            ->where('occurred_at', '>=', $since)
+        Trail::events()->between($since, Carbon::now())->toBuilder()
             ->get(['occurred_at'])
             ->each(function (TrailEvent $e) use (&$buckets, $format): void {
                 $key = $e->occurred_at->format($format);
@@ -108,7 +108,7 @@ class Overview extends Component
 
     private function realActors(): array
     {
-        return TrailEvent::query()
+        return Trail::events()->toBuilder()->reorder()
             ->selectRaw('subject_type, subject_id, count(*) as aggregate')
             ->whereNotNull('subject_id')
             ->groupBy('subject_type', 'subject_id')

@@ -110,7 +110,7 @@ class PendingEvent
 
         $request = request();
 
-        // Only enrich for a real, routed HTTP request — never for console
+        // Only enrich for a real, routed HTTP request - never for console
         // commands or queue workers (whose bound request has no route).
         if ($request->route() === null) {
             return [];

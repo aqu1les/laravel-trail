@@ -6,6 +6,7 @@ namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
 
@@ -70,7 +71,7 @@ class SubjectTimeline extends Component
     /** Distinct real subjects with resolved identity, most active first. */
     private function realActors(): array
     {
-        return TrailEvent::query()
+        return Trail::events()->toBuilder()->reorder()
             ->selectRaw('subject_type, subject_id, count(*) as aggregate')
             ->whereNotNull('subject_id')
             ->groupBy('subject_type', 'subject_id')
@@ -110,7 +111,7 @@ class SubjectTimeline extends Component
         } else {
             $actors = $this->realActors();
             $actor = collect($actors)->firstWhere('key', $this->actorId)
-                ?? ['key' => '', 'name' => '—', 'type' => '—', 'id' => '—', 'email' => null];
+                ?? ['key' => '', 'name' => '-', 'type' => '-', 'id' => '-', 'email' => null];
             $events = $this->realEventsFor($actor['key']);
             $results = $this->actorSearch !== ''
                 ? array_values(array_filter($actors, fn ($a) => str_contains(
@@ -166,9 +167,9 @@ class SubjectTimeline extends Component
             'stats' => [
                 'total' => count($events),
                 'sessions' => $counts['session.started'] ?? 0,
-                'first' => $ts === [] ? '—' : Sample::fullDate(min($ts)),
-                'last' => $ts === [] ? '—' : Sample::relative(max($ts)),
-                'top_event' => array_key_first($counts) ?? '—',
+                'first' => $ts === [] ? '-' : Sample::fullDate(min($ts)),
+                'last' => $ts === [] ? '-' : Sample::relative(max($ts)),
+                'top_event' => array_key_first($counts) ?? '-',
                 'bars' => $bars,
                 'max_bar' => max(1, ...$bars),
             ],
@@ -183,11 +184,13 @@ class SubjectTimeline extends Component
         }
         [$type, $id] = explode('|', $key, 2);
 
-        return TrailEvent::query()
+        // Trail::events() already orders newest-first; uses the
+        // (subject_type, subject_id, occurred_at) composite index.
+        return Trail::events()->toBuilder()
             ->with('subject')
             ->where('subject_type', $type)
             ->where('subject_id', $id)
-            ->orderByDesc('occurred_at')->orderByDesc('id')->limit(300)->get()
+            ->limit(300)->get()
             ->map(fn (TrailEvent $e) => $this->normalizeEvent($e))->all();
     }
 }
