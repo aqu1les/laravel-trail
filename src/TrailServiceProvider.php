@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Trail\Trail;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Console\AggregateCommand;
 use Trail\Trail\Console\InstallCommand;
 use Trail\Trail\Console\PruneCommand;
 use Trail\Trail\Http\Middleware\Authorize;
+use Trail\Trail\Http\Middleware\TrackPageView;
 use Trail\Trail\Support\EventBuffer;
 
 class TrailServiceProvider extends ServiceProvider
@@ -43,6 +45,21 @@ class TrailServiceProvider extends ServiceProvider
         $this->registerPublishing();
         $this->registerCommands();
         $this->registerIngestFlush();
+        $this->registerPageViewTracking();
+    }
+
+    /**
+     * Opt-in: push the page-view middleware onto the app's web group.
+     */
+    public function registerPageViewTracking(): void
+    {
+        if (! config('trail.auto_track.page_views', false)) {
+            return;
+        }
+
+        /** @var Router $router */
+        $router = $this->app->make('router');
+        $router->pushMiddlewareToGroup('web', TrackPageView::class);
     }
 
     /**
