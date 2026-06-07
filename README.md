@@ -170,7 +170,19 @@ app(\Trail\Trail\RecorderManager::class)->extend('bigquery', fn ($app) => new Bi
 
 ## The dashboard
 
-Trail auto-registers its routes under `/trail` (configurable via `trail.path`). The JSON API is live today:
+Trail ships an embedded dashboard at `/trail` (configurable via `trail.path`), in the spirit of Pulse and Telescope - dense, dark by default, server-rendered with Blade + Livewire. No build step and no `npm`: the styles are plain CSS driven by design tokens.
+
+Three screens are built today, on your real data:
+
+- **Overview** (`/trail`) - totals, unique actors, a time series with hour/day/week granularity, top events and most-active actors.
+- **Events** (`/trail/events`) - a filterable, live-updating stream with a payload drawer (properties, context, raw JSON).
+- **Subject Timeline** (`/trail/timeline`) - every event of a single actor, grouped by day, with inline payload expansion.
+
+There's also a **Design System** page at `/trail/design-system`, and - in your `local` environment only - **demo** versions of every screen under `/trail/demo/*`, so you can preview the UI with sample data before any real events land. Funnels is the one screen still on the roadmap.
+
+### JSON API
+
+The same data is exposed as JSON, handy for your own tooling:
 
 | Endpoint | Returns |
 | --- | --- |
@@ -178,13 +190,35 @@ Trail auto-registers its routes under `/trail` (configurable via `trail.path`). 
 | `GET /trail/api/metrics` | Totals, unique actors, top events, and a per-bucket time series (`period`) |
 | `GET /trail/api/funnel?steps[]=a&steps[]=b` | Conversion through an ordered sequence - count, rate, drop-off per step |
 
-In code (and from Livewire components), the same data is available through fluent read helpers:
+In code (and inside the Livewire screens), the same data is available through fluent read helpers:
 
 ```php
 Trail::events()->for($user)->between($start, $end)->paginate(25);
 Trail::count('order.placed')->today();
 Trail::funnel(['signup', 'activated', 'purchase']);
 ```
+
+### Theming
+
+Every colour, font, radius and spacing in the dashboard is a `--trail-*` CSS variable. To rebrand it, publish the styles and override any token after the import - nothing downstream hardcodes a value:
+
+```bash
+php artisan vendor:publish --tag="trail-styles"
+```
+
+```css
+/* resources/css/app.css */
+@import "tailwindcss";
+@import "trail/styles.css";
+
+:root {
+    --trail-accent: #16a34a;        /* swap the rose accent for your brand */
+    --trail-radius-lg: 6px;
+    --trail-font-sans: "Geist", sans-serif;
+}
+```
+
+Neutrals are zinc, the accent is rose, dark is the default (`.dark` on `<html>`) with a working light theme. With a Tailwind v4 build the tokens are also exposed as utilities (`bg-surface`, `text-muted`, `text-accent`, `border-border`, `font-mono`) through `@theme`.
 
 ### Locking it down
 
@@ -258,10 +292,11 @@ Shipped:
 - ✅ Pre-computed aggregates + `trail:aggregate`, `trail:prune`, `trail:install` commands
 - ✅ Privacy-aware context capture + opt-in page-view tracking
 - ✅ Auto-registered routes, JSON API, dashboard auth gate
+- ✅ Embedded Blade + Livewire dashboard - Overview, Events, Subject Timeline, design-system showcase, token theming
 
 Next up:
 
-- ⏳ The visual dashboard screens (Overview, Events explorer, Funnels, Subject timeline) - Blade + Livewire
+- ⏳ Funnels screen
 - ⏳ Pluggable storage drivers (ClickHouse) for very high volume
 
 ## Testing
