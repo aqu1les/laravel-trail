@@ -7,7 +7,7 @@ namespace Trail\Trail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Trail\Trail\Models\TrailEvent;
-use Trail\Trail\Support\ContextCapture;
+use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Support\MorphType;
 
 class PendingEvent
@@ -107,19 +107,18 @@ class PendingEvent
      */
     protected function captureContext(): array
     {
-        if (! app()->bound('request')) {
-            return [];
+        $capture = app(ContextCaptureContract::class);
+
+        // A real routed HTTP request (including test-simulated ones) takes priority.
+        if (app()->bound('request') && request()->route() !== null) {
+            return $capture->fromRequest(request());
         }
 
-        $request = request();
-
-        // Only enrich for a real, routed HTTP request - never for console
-        // commands or queue workers (whose bound request has no route).
-        if ($request->route() === null) {
-            return [];
+        if (app()->runningInConsole()) {
+            return $capture->fromConsole();
         }
 
-        return app(ContextCapture::class)->fromRequest($request);
+        return [];
     }
 
     protected function resolveSubject(): ?Model

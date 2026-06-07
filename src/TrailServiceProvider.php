@@ -16,6 +16,8 @@ use Trail\Trail\Console\PruneCommand;
 use Trail\Trail\Contracts\EventBuffer;
 use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
+use Trail\Trail\Contracts\ContextCaptureContract;
+use Trail\Trail\Support\ContextCapture;
 use Trail\Trail\Support\MemoryEventBuffer;
 use Trail\Trail\Support\RedisEventBuffer;
 
@@ -29,6 +31,12 @@ class TrailServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/trail.php', 'trail');
 
         $this->app->singleton(RecorderManager::class, fn (Application $app) => new RecorderManager($app));
+
+        $this->app->singleton(ContextCaptureContract::class, function (Application $app): ContextCaptureContract {
+            $class = config('trail.context_capture') ?? ContextCapture::class;
+
+            return $app->make($class);
+        });
 
         $this->app->singleton(Trail::class, fn (Application $app) => new Trail(
             $app->make(RecorderManager::class)

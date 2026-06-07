@@ -57,7 +57,7 @@ it('records session and context', function () {
     $event = TrailEvent::firstWhere('name', 'page.viewed');
 
     expect($event->session_id)->toBe('sess-123')
-        ->and($event->context)->toBe(['referrer' => 'google']);
+        ->and($event->context)->toMatchArray(['referrer' => 'google']);
 });
 
 it('does not leak fluent state between calls on the singleton', function () {

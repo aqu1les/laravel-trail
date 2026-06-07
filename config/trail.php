@@ -82,6 +82,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Context capture
+    |--------------------------------------------------------------------------
+    | Custom ContextCapture implementation. Must implement ContextCaptureContract.
+    | Defaults to the built-in Trail\Trail\Support\ContextCapture.
+    */
+    'context_capture' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Privacy
     |--------------------------------------------------------------------------
     */
@@ -89,6 +98,22 @@ return [
         'anonymize_ip' => true,
         'store_ip' => false,
         'store_user_agent' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Console context
+    |--------------------------------------------------------------------------
+    | Attributes captured when events are tracked from Artisan commands or
+    | queue workers. capture_command_arguments and capture_server_ip are
+    | opt-in as they may expose sensitive values.
+    */
+    'console' => [
+        'capture_hostname'          => true,
+        'capture_pid'               => true,
+        'capture_command'           => true,
+        'capture_command_arguments' => false,
+        'capture_server_ip'         => false,
     ],
 
     /*

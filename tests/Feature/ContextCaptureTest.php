@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Support\ContextCapture;
@@ -38,4 +39,92 @@ it('merges captured request context into tracked events', function () {
 
     expect($event->context)->toHaveKey('custom')
         ->and($event->context)->toHaveKey('url');
+});
+
+it('captures hostname and pid from console by default', function () {
+    config()->set('trail.console', [
+        'capture_hostname' => true,
+        'capture_pid' => true,
+        'capture_command' => false,
+        'capture_command_arguments' => false,
+        'capture_server_ip' => false,
+    ]);
+
+    $c = (new ContextCapture)->fromConsole();
+
+    expect($c)->toHaveKey('hostname')
+        ->and($c['hostname'])->toBe(gethostname())
+        ->and($c)->toHaveKey('pid')
+        ->and($c['pid'])->toBeInt();
+});
+
+it('captures command name without arguments by default', function () {
+    config()->set('trail.console', [
+        'capture_hostname' => false,
+        'capture_pid' => false,
+        'capture_command' => true,
+        'capture_command_arguments' => false,
+        'capture_server_ip' => false,
+    ]);
+
+    $_SERVER['argv'] = ['artisan', 'queue:work', '--queue=default'];
+
+    $c = (new ContextCapture)->fromConsole();
+
+    expect($c)->toHaveKey('command')
+        ->and($c['command'])->toBe('queue:work')
+        ->and($c)->not->toHaveKey('command_arguments');
+});
+
+it('captures command arguments when opted in', function () {
+    config()->set('trail.console', [
+        'capture_hostname' => false,
+        'capture_pid' => false,
+        'capture_command' => true,
+        'capture_command_arguments' => true,
+        'capture_server_ip' => false,
+    ]);
+
+    $_SERVER['argv'] = ['artisan', 'queue:work', '--queue=default', '--tries=3'];
+
+    $c = (new ContextCapture)->fromConsole();
+
+    expect($c['command_arguments'])->toBe('--queue=default --tries=3');
+});
+
+it('omits server ip unless opted in', function () {
+    config()->set('trail.console', [
+        'capture_hostname' => false,
+        'capture_pid' => false,
+        'capture_command' => false,
+        'capture_command_arguments' => false,
+        'capture_server_ip' => false,
+    ]);
+
+    $c = (new ContextCapture)->fromConsole();
+
+    expect($c)->not->toHaveKey('server_ip');
+});
+
+it('resolves custom context capture class from config', function () {
+    $custom = new class implements ContextCaptureContract
+    {
+        public function fromRequest(\Illuminate\Http\Request $request): array
+        {
+            return ['custom' => 'request'];
+        }
+
+        public function fromConsole(): array
+        {
+            return ['custom' => 'console'];
+        }
+    };
+
+    config()->set('trail.context_capture', $custom::class);
+    app()->bind($custom::class, fn () => $custom);
+    app()->forgetInstance(ContextCaptureContract::class);
+
+    $resolved = app(ContextCaptureContract::class);
+
+    expect($resolved->fromConsole())->toBe(['custom' => 'console']);
 });
