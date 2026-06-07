@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
+use Trail\Trail\Models\TrailAggregate;
 use Trail\Trail\Models\TrailEvent;
 
 class Overview extends Component
@@ -40,18 +41,27 @@ class Overview extends Component
 
     private function realData(): array
     {
-        [$labels, $counts, $total] = $this->realSeries();
+        // The chart series and the windowed "top events" are the two heaviest
+        // scans; serve them from pre-computed rollups when available, else live.
+        [$period, $since, $useRollup] = $this->seriesWindow();
 
-        $topEventRows = Trail::events()->toBuilder()->reorder()
-            ->selectRaw('name, count(*) as aggregate')
-            ->groupBy('name')->orderByDesc('aggregate')->limit(6)->get();
-        $maxTop = (int) ($topEventRows->max('aggregate') ?: 1);
-        $topEvents = $topEventRows->map(fn ($r) => [
+        [$labels, $counts, $total] = $useRollup
+            ? $this->rollupSeries($period, $since)
+            : $this->liveSeries();
+
+        $topRows = $useRollup
+            ? $this->rollupTopEventRows($period, $since)
+            : $this->liveTopEventRows($since);
+        $maxTop = (int) ($topRows->max('c') ?: 1);
+        $topEvents = $topRows->map(fn ($r) => [
             'name' => $r->name,
-            'count' => $this->humanize((int) $r->aggregate),
-            'pct' => (int) round((int) $r->aggregate / $maxTop * 100),
+            'count' => $this->humanize((int) $r->c),
+            'pct' => (int) round((int) $r->c / $maxTop * 100),
         ])->all();
+        $topEvent = $topRows->first();
 
+        // Exact figures the rollups can't safely provide (cross-name uniqueness,
+        // per-actor breakdown) stay live.
         $totalEvents = Trail::events()->count();
         $uniqueSubjects = Trail::events()->toBuilder()->reorder()->whereNotNull('subject_id')->distinct()->count('subject_id');
         $todayEvents = Trail::events()->today();
@@ -60,8 +70,8 @@ class Overview extends Component
             ['label' => 'Total de eventos', 'value' => $this->humanize($totalEvents), 'sub' => 'desde o início',
                 'sparkPts' => count($counts) > 1 ? self::spark($counts) : null, 'accent' => true],
             ['label' => 'Atores únicos ativos', 'value' => $this->humanize($uniqueSubjects), 'sub' => 'com eventos'],
-            ['label' => 'Evento mais frequente', 'value' => $topEventRows->first()->name ?? '-', 'mono' => true,
-                'sub' => $topEventRows->first() ? $this->humanize((int) $topEventRows->first()->aggregate).' disparos' : 'sem eventos'],
+            ['label' => 'Evento mais frequente', 'value' => $topEvent->name ?? '-', 'mono' => true,
+                'sub' => $topEvent ? $this->humanize((int) $topEvent->c).' disparos' : 'sem eventos'],
             ['label' => 'Eventos hoje', 'value' => $this->humanize($todayEvents), 'sub' => 'últimas 24h'],
         ];
 
@@ -73,8 +83,71 @@ class Overview extends Component
         ];
     }
 
+    /** Resolve the chart window: [rollup period, since, whether rollups cover it]. */
+    private function seriesWindow(): array
+    {
+        $now = Carbon::now();
+        [$period, $n, $sub, $unit] = match ($this->granularity) {
+            'Hora' => ['hour', 12, 'subHours', 'hour'],
+            'Semana' => ['week', 6, 'subWeeks', 'week'],
+            default => ['day', 7, 'subDays', 'day'],
+        };
+        $since = (clone $now)->{$sub}($n - 1)->startOf($unit);
+        $useRollup = TrailAggregate::query()->where('period', $period)->where('bucket', '>=', $since)->exists();
+
+        return [$period, $since, $useRollup];
+    }
+
+    /** Chart series from pre-computed rollups (a handful of rows). */
+    private function rollupSeries(string $period, Carbon $since): array
+    {
+        $now = Carbon::now();
+        [$n, $sub, $unit] = match ($period) {
+            'hour' => [12, 'subHours', 'hour'],
+            'week' => [6, 'subWeeks', 'week'],
+            default => [7, 'subDays', 'day'],
+        };
+
+        $map = TrailAggregate::query()->where('period', $period)->where('bucket', '>=', $since)
+            ->selectRaw('bucket, sum(count) as c')->groupBy('bucket')->pluck('c', 'bucket');
+
+        $labels = $counts = [];
+        for ($i = $n - 1; $i >= 0; $i--) {
+            $start = (clone $now)->{$sub}($i)->startOf($unit);
+            $labels[] = $this->seriesLabel($start, $i);
+            $counts[] = (int) ($map[$start->toDateTimeString()] ?? 0);
+        }
+
+        return [$labels, $counts, array_sum($counts)];
+    }
+
+    private function seriesLabel(Carbon $start, int $i): string
+    {
+        return match ($this->granularity) {
+            'Hora' => $start->format('H'),
+            'Semana' => $i === 0 ? 'Atual' : "S-{$i}",
+            default => ucfirst($start->locale('pt_BR')->isoFormat('ddd')),
+        };
+    }
+
+    /** Top events over the window, live (name + c). */
+    private function liveTopEventRows(Carbon $since)
+    {
+        return Trail::events()->between($since, Carbon::now())->toBuilder()->reorder()
+            ->selectRaw('name, count(*) as c')
+            ->groupBy('name')->orderByDesc('c')->limit(6)->get();
+    }
+
+    /** Top events over the window, from rollups (name + c). */
+    private function rollupTopEventRows(string $period, Carbon $since)
+    {
+        return TrailAggregate::query()->where('period', $period)->where('bucket', '>=', $since)
+            ->selectRaw('name, sum(count) as c')
+            ->groupBy('name')->orderByDesc('c')->limit(6)->get();
+    }
+
     /** Per-bucket counts for the chart — one GROUP BY query, no row loading. */
-    private function realSeries(): array
+    private function liveSeries(): array
     {
         $now = Carbon::now();
 
@@ -122,7 +195,7 @@ class Overview extends Component
     private function groupedCounts(Carbon $since, string $unit): array
     {
         $builder = Trail::events()->between($since, Carbon::now())->toBuilder()->reorder();
-        $driver = $builder->getConnection()->getDriverName();
+        $driver = (new TrailEvent)->getConnection()->getDriverName();
 
         $expr = match ([$driver, $unit]) {
             ['sqlite', 'hour'] => "strftime('%Y-%m-%d %H', occurred_at)",
@@ -140,7 +213,7 @@ class Overview extends Component
 
             return $builder->get(['occurred_at'])
                 ->groupBy(fn (TrailEvent $e) => $e->occurred_at->format($fmt))
-                ->map->count()->all();
+                ->map(fn ($group) => $group->count())->all();
         }
 
         return $builder->selectRaw("{$expr} as bucket, count(*) as aggregate")

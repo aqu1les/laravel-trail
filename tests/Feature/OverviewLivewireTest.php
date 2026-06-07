@@ -36,3 +36,19 @@ it('aggregates the real series across granularities via SQL', function () {
         ->set('granularity', 'Hora')->assertSee('Eventos ao longo do tempo', false)
         ->set('granularity', 'Semana')->assertSee('Eventos ao longo do tempo', false);
 });
+
+it('serves the series and top events from rollups when available', function () {
+    // Only a pre-computed daily rollup exists - no raw events with this name.
+    \Trail\Trail\Models\TrailAggregate::create([
+        'period' => 'day',
+        'bucket' => now()->startOfDay(),
+        'name' => 'rollup.only',
+        'count' => 123,
+        'unique_subjects' => 5,
+        'sum_value' => null,
+    ]);
+
+    Livewire::test(Overview::class) // real mode, default 'Dia' => period 'day'
+        ->assertSee('rollup.only', false)
+        ->assertSee('123', false);
+});
