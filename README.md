@@ -42,22 +42,23 @@ Most analytics tools answer "how many" really well and "who, exactly, and what d
 
 ```bash
 composer require aqu1les/laravel-trail
-```
-
-Publish and run the migration:
-
-```bash
-php artisan vendor:publish --tag="trail-migrations"
 php artisan migrate
 ```
 
-Optionally publish the config to tune things:
+That's the whole install. Migrations are auto-loaded, so `migrate` just works - no publish step. The service provider also auto-registers the routes, the facade, and the `trail:aggregate`/`trail:prune` schedule.
+
+For a guided setup - publishes the config, assets and agent skill, and scaffolds the dashboard gate at `app/Providers/TrailServiceProvider.php`:
+
+```bash
+php artisan trail:install
+```
+
+Want to own the config or migrations? Publish them explicitly:
 
 ```bash
 php artisan vendor:publish --tag="trail-config"
+php artisan vendor:publish --tag="trail-migrations"  # then these run instead of the bundled ones
 ```
-
-That's it. The service provider auto-registers itself, the routes, and the facade.
 
 ## Quick start
 
@@ -258,22 +259,13 @@ Because the config is published into your app, you override values by editing th
 
 ## Going to production
 
-Recording works the moment you install and add the trait. Running it *well* takes a few deliberate steps, because the defaults favour performance over zero-setup:
+Recording works the moment you install and add the trait. Two things still need *your* infrastructure, because the defaults favour performance over zero-setup:
 
 1. **Run a queue worker** - the default recorder is `queue`, so events sit in the queue until a worker handles them: `php artisan queue:work`. (Or set `TRAIL_RECORDER=sync`, accepting per-request latency; or `ingest` for batching.)
 2. **Provision Redis if you use `ingest`** - its default buffer is `redis`; otherwise set `TRAIL_INGEST_BUFFER=memory`.
-3. **Protect the dashboard** - define `Trail::auth(...)` (see above); it's `local`-only by default.
-4. **Schedule maintenance** so the dashboard stays fast and data doesn't grow forever:
+3. **Protect the dashboard** - it's `local`-only by default. `trail:install` scaffolds `app/Providers/TrailServiceProvider.php` where you define `Trail::auth(...)` (see above).
 
-```php
-// routes/console.php
-use Illuminate\Support\Facades\Schedule;
-
-Schedule::command('trail:aggregate')->hourly();  // roll events into trail_aggregates
-Schedule::command('trail:prune')->daily();        // enforce the retention window
-```
-
-Artisan commands: `trail:install` (publish config + migrations + assets), `trail:aggregate`, `trail:prune`.
+Maintenance is handled for you: `trail:aggregate` (hourly) and `trail:prune` (daily) are **auto-registered on the scheduler** - just make sure the scheduler itself runs (`* * * * * php artisan schedule:run`). Turn either off via `config('trail.schedule')`. Both are also plain Artisan commands (`trail:aggregate`, `trail:prune`, `trail:install`) if you prefer to schedule them yourself.
 
 ## Privacy
 
