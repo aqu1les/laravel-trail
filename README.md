@@ -229,9 +229,17 @@ Trail::count('order.placed')->today();
 Trail::funnel(['signup', 'activated', 'purchase']);
 ```
 
+### Styling - zero config
+
+The dashboard ships its own pre-compiled stylesheet (`dist/trail.css`) and injects it inline, the same way Laravel Pulse does. There is **nothing to configure**: install the package and `/trail` is fully styled in every environment, production included. No Tailwind CDN, no `@source` pointing at `vendor/`, no build step on your side.
+
+If you ever change the bundled CSS source while developing the package, recompile it with `bun run build` (or `bun run dev` to watch).
+
 ### Theming
 
-Every colour, font, radius and spacing in the dashboard is a `--trail-*` CSS variable. To rebrand it, publish the styles and override any token after the import - nothing downstream hardcodes a value:
+Every colour, font, radius and spacing in the dashboard is a `--trail-*` CSS variable. Neutrals are zinc, the accent is rose, dark is the default (`.dark` on `<html>`) with a working light theme.
+
+To rebrand it, compile your own copy of the stylesheet and point Trail at it. Publish the source, override any token after the import, then set `trail.stylesheet`:
 
 ```bash
 php artisan vendor:publish --tag="trail-styles"
@@ -240,7 +248,8 @@ php artisan vendor:publish --tag="trail-styles"
 ```css
 /* resources/css/app.css */
 @import "tailwindcss";
-@import "trail/styles.css";
+@source "../../vendor/aqu1les/laravel-trail/resources/views";  /* the utilities the dashboard uses */
+@import "trail/styles.css";                                     /* tokens + components */
 
 :root {
     --trail-accent: #16a34a;        /* swap the rose accent for your brand */
@@ -249,25 +258,12 @@ php artisan vendor:publish --tag="trail-styles"
 }
 ```
 
-Neutrals are zinc, the accent is rose, dark is the default (`.dark` on `<html>`) with a working light theme. With a Tailwind v4 build the tokens are also exposed as utilities (`bg-surface`, `text-muted`, `text-accent`, `border-border`, `font-mono`) through `@theme`.
-
-#### Dashboard CSS in production
-
-Out of the box the dashboard's Tailwind utilities are compiled **in the browser** via the Tailwind CDN - handy locally, but not for production. For production, compile the dashboard into your own Tailwind build: scan Trail's views and import its styles, then point Trail at the compiled file.
-
-```css
-/* resources/css/app.css */
-@import "tailwindcss";
-@source "../../vendor/aqu1les/laravel-trail/resources/views";  /* generate the utilities the dashboard uses */
-@import "trail/styles.css";                                     /* tokens + components (published via trail-styles) */
-```
-
 ```php
 // config/trail.php  (or TRAIL_DASHBOARD_CSS)
 'stylesheet' => '/build/assets/app.css', // your compiled file, e.g. Vite::asset('resources/css/app.css')
 ```
 
-When `trail.stylesheet` is set, the dashboard loads it and drops the CDN entirely.
+When `trail.stylesheet` is set, the dashboard loads it instead of the bundled inline stylesheet. With a Tailwind v4 build the tokens are also exposed as utilities (`bg-surface`, `text-muted`, `text-accent`, `border-border`, `font-mono`) through `@theme`.
 
 ### Locking it down
 
