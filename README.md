@@ -47,7 +47,7 @@ php artisan migrate
 
 That's the whole install. Migrations are auto-loaded, so `migrate` just works - no publish step. The service provider also auto-registers the routes, the facade, and the `trail:aggregate`/`trail:prune` schedule.
 
-For a guided setup - publishes the config, assets and agent skill, and scaffolds the dashboard gate at `app/Providers/TrailServiceProvider.php`:
+For a guided setup - publishes the config and agent skill, and scaffolds the dashboard gate at `app/Providers/TrailServiceProvider.php`:
 
 ```bash
 php artisan trail:install
@@ -59,6 +59,36 @@ Want to own the config or migrations? Publish them explicitly:
 php artisan vendor:publish --tag="trail-config"
 php artisan vendor:publish --tag="trail-migrations"  # then these run instead of the bundled ones
 ```
+
+### Installing from the Git repo (not on Packagist yet)
+
+Trail isn't published to Packagist. Point Composer at the repository from your app's `composer.json`:
+
+```json
+"repositories": [
+    { "type": "vcs", "url": "https://github.com/aqu1les/laravel-trail" }
+]
+```
+
+Then require the branch you want:
+
+```bash
+composer require aqu1les/laravel-trail:dev-main
+```
+
+**Developing the package locally?** Use a `path` repository so your app symlinks your working copy and picks up edits with no reinstall:
+
+```json
+"repositories": [
+    { "type": "path", "url": "../laravel-trail" }
+]
+```
+
+```bash
+composer require aqu1les/laravel-trail:@dev
+```
+
+The `dev-main`/`@dev` constraints already opt into dev stability for this one package. If Composer still refuses, add `"minimum-stability": "dev"` and `"prefer-stable": true` to your app's `composer.json`.
 
 ## Quick start
 
@@ -220,6 +250,24 @@ php artisan vendor:publish --tag="trail-styles"
 ```
 
 Neutrals are zinc, the accent is rose, dark is the default (`.dark` on `<html>`) with a working light theme. With a Tailwind v4 build the tokens are also exposed as utilities (`bg-surface`, `text-muted`, `text-accent`, `border-border`, `font-mono`) through `@theme`.
+
+#### Dashboard CSS in production
+
+Out of the box the dashboard's Tailwind utilities are compiled **in the browser** via the Tailwind CDN - handy locally, but not for production. For production, compile the dashboard into your own Tailwind build: scan Trail's views and import its styles, then point Trail at the compiled file.
+
+```css
+/* resources/css/app.css */
+@import "tailwindcss";
+@source "../../vendor/aqu1les/laravel-trail/resources/views";  /* generate the utilities the dashboard uses */
+@import "trail/styles.css";                                     /* tokens + components (published via trail-styles) */
+```
+
+```php
+// config/trail.php  (or TRAIL_DASHBOARD_CSS)
+'stylesheet' => '/build/assets/app.css', // your compiled file, e.g. Vite::asset('resources/css/app.css')
+```
+
+When `trail.stylesheet` is set, the dashboard loads it and drops the CDN entirely.
 
 ### Locking it down
 
