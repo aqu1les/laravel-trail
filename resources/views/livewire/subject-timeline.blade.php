@@ -7,7 +7,7 @@
         'integration' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></svg>',
         'system' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
     ];
-    $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_string($v) ? $v : (string) $v);
+    $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? '['.count($v).']' : (is_string($v) ? $v : (string) $v));
 @endphp
 
 <div class="flex-1 flex flex-col min-w-0">
