@@ -37,7 +37,9 @@ it('auto-flushes when reaching flush_at', function () {
 
 it('records through the ingest driver into the buffer', function () {
     config()->set('trail.recorder', 'ingest');
+    config()->set('trail.ingest.buffer', 'memory');
     config()->set('trail.ingest.flush_at', 100);
+    app()->forgetInstance(EventBuffer::class);
 
     Trail::track('order.placed');
 
