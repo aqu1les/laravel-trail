@@ -6,8 +6,8 @@ namespace Trail\Trail;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
-use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Contracts\ContextCaptureContract;
+use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Support\MorphType;
 
 class PendingEvent

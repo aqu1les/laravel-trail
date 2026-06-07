@@ -109,11 +109,11 @@ return [
     | opt-in as they may expose sensitive values.
     */
     'console' => [
-        'capture_hostname'          => true,
-        'capture_pid'               => true,
-        'capture_command'           => true,
+        'capture_hostname' => true,
+        'capture_pid' => true,
+        'capture_command' => true,
         'capture_command_arguments' => false,
-        'capture_server_ip'         => false,
+        'capture_server_ip' => false,
     ],
 
     /*

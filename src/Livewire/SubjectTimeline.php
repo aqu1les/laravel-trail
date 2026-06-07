@@ -168,8 +168,7 @@ class SubjectTimeline extends Component
 
         if ($this->indexSearch !== '') {
             $term = mb_strtolower($this->indexSearch);
-            $actors = array_values(array_filter($actors, fn ($a) =>
-                str_contains(mb_strtolower($a['id']), $term) ||
+            $actors = array_values(array_filter($actors, fn ($a) => str_contains(mb_strtolower($a['id']), $term) ||
                 str_contains(mb_strtolower($a['name']), $term) ||
                 str_contains(mb_strtolower($a['email'] ?? ''), $term)
             ));

@@ -109,7 +109,7 @@ it('omits server ip unless opted in', function () {
 it('resolves custom context capture class from config', function () {
     $custom = new class implements ContextCaptureContract
     {
-        public function fromRequest(\Illuminate\Http\Request $request): array
+        public function fromRequest(Request $request): array
         {
             return ['custom' => 'request'];
         }

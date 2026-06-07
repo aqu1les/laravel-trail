@@ -6,6 +6,7 @@ namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
@@ -63,7 +64,7 @@ class Overview extends Component
         // Exact figures the rollups can't safely provide (cross-name uniqueness,
         // per-actor breakdown) stay live.
         $totalEvents = Trail::events()->count();
-        $uniqueSubjects = \Illuminate\Support\Facades\DB::table(
+        $uniqueSubjects = DB::table(
             Trail::events()->toBuilder()->reorder()
                 ->whereNotNull('subject_id')
                 ->whereNotNull('subject_type')
