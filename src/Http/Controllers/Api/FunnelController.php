@@ -25,18 +25,38 @@ class FunnelController
         /** @var list<string>|null $qualified */
         $qualified = null;
         $result = [];
+        $firstCount = 0;
+        $previousCount = 0;
 
-        foreach ($steps as $name) {
+        foreach ($steps as $index => $name) {
             $identities = $this->subjectsForEvent($name);
 
             $qualified = $qualified === null
                 ? $identities
                 : array_values(array_intersect($qualified, $identities));
 
-            $result[] = ['name' => $name, 'count' => count($qualified)];
+            $count = count($qualified);
+
+            if ($index === 0) {
+                $firstCount = $count;
+            }
+
+            $result[] = [
+                'name' => $name,
+                'count' => $count,
+                'rate' => $firstCount === 0 ? 0.0 : round($count / $firstCount, 4),
+                'drop_off' => $index === 0 ? 0 : $previousCount - $count,
+            ];
+
+            $previousCount = $count;
         }
 
-        return ['steps' => $result];
+        $lastCount = $previousCount;
+
+        return [
+            'steps' => $result,
+            'overall_conversion' => $firstCount === 0 ? 0.0 : round($lastCount / $firstCount, 4),
+        ];
     }
 
     /**

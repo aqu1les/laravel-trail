@@ -17,6 +17,8 @@ class EventsController
      */
     public function index(Request $request): LengthAwarePaginator
     {
+        $direction = strtolower($request->string('order')->value()) === 'asc' ? 'asc' : 'desc';
+
         return TrailEvent::query()
             ->when($request->filled('name'), fn ($query) => $query->where('name', $request->string('name')))
             ->when($request->filled('subject_type'), fn ($query) => $query->where('subject_type', $request->string('subject_type')))
@@ -24,8 +26,8 @@ class EventsController
             ->when($request->filled('session_id'), fn ($query) => $query->where('session_id', $request->string('session_id')))
             ->when($request->filled('from'), fn ($query) => $query->where('occurred_at', '>=', $request->date('from')))
             ->when($request->filled('to'), fn ($query) => $query->where('occurred_at', '<=', $request->date('to')))
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id')
+            ->orderBy('occurred_at', $direction)
+            ->orderBy('id', $direction)
             ->paginate(perPage: (int) $request->integer('per_page', 50));
     }
 }

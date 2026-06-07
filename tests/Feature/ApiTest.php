@@ -79,11 +79,55 @@ it('computes funnel conversion per step', function () {
     }
     makeEvent(['name' => 'purchase', 'subject_type' => $u1->getMorphClass(), 'subject_id' => $u1->getKey()]);
 
-    $response = $this->getJson('/trail/api/funnel?'.http_build_query(['steps' => ['signup', 'purchase']]));
-
-    $response->assertOk()
+    $this->getJson('/trail/api/funnel?'.http_build_query(['steps' => ['signup', 'purchase']]))
+        ->assertOk()
         ->assertJsonPath('steps.0.name', 'signup')
         ->assertJsonPath('steps.0.count', 2)
         ->assertJsonPath('steps.1.name', 'purchase')
         ->assertJsonPath('steps.1.count', 1);
+});
+
+it('orders events ascending when asked', function () {
+    makeEvent(['name' => 'old.event', 'occurred_at' => now()->subDay()]);
+    makeEvent(['name' => 'new.event', 'occurred_at' => now()]);
+
+    $this->getJson('/trail/api/events?order=asc')
+        ->assertOk()
+        ->assertJsonPath('data.0.name', 'old.event');
+});
+
+it('returns a daily series and the resolved range in metrics', function () {
+    makeEvent(['name' => 'a', 'occurred_at' => now()->subDay()]);
+    makeEvent(['name' => 'b', 'occurred_at' => now()]);
+
+    $response = $this->getJson('/trail/api/metrics?period=day');
+
+    $response->assertOk()
+        ->assertJsonStructure([
+            'range' => ['from', 'to', 'period'],
+            'total_events',
+            'unique_subjects',
+            'top_events',
+            'series' => [['bucket', 'count', 'unique_subjects']],
+        ])
+        ->assertJsonPath('range.period', 'day');
+
+    expect(count($response->json('series')))->toBeGreaterThanOrEqual(2);
+});
+
+it('includes conversion rate and drop-off per funnel step', function () {
+    $u1 = User::create(['name' => 'A']);
+    $u2 = User::create(['name' => 'B']);
+
+    foreach ([$u1, $u2] as $u) {
+        makeEvent(['name' => 'signup', 'subject_type' => $u->getMorphClass(), 'subject_id' => $u->getKey()]);
+    }
+    makeEvent(['name' => 'purchase', 'subject_type' => $u1->getMorphClass(), 'subject_id' => $u1->getKey()]);
+
+    $this->getJson('/trail/api/funnel?'.http_build_query(['steps' => ['signup', 'purchase']]))
+        ->assertOk()
+        ->assertJsonPath('steps.0.rate', 1) // JSON serializes 1.0 as 1; the UI parseFloats
+        ->assertJsonPath('steps.1.rate', 0.5)
+        ->assertJsonPath('steps.1.drop_off', 1)
+        ->assertJsonPath('overall_conversion', 0.5);
 });

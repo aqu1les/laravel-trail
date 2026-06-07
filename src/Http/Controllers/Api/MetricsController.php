@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Http\Controllers\Api;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Trail\Trail\Models\TrailEvent;
 
@@ -31,10 +32,55 @@ class MetricsController
                 'count' => (int) $event->getAttribute('count'),
             ]);
 
+        $period = strtolower($request->string('period')->value());
+        if (! in_array($period, ['hour', 'day', 'week', 'month'], true)) {
+            $period = 'day';
+        }
+
         return [
+            'range' => [
+                'from' => $request->date('from')?->toIso8601String(),
+                'to' => $request->date('to')?->toIso8601String(),
+                'period' => $period,
+            ],
             'total_events' => (clone $base)->count(),
             'unique_subjects' => (clone $base)->whereNotNull('subject_id')->distinct()->count('subject_id'),
             'top_events' => $topEvents,
+            'series' => $this->series($base, $period),
         ];
+    }
+
+    /**
+     * Build a per-bucket time series in PHP for cross-database portability.
+     *
+     * @param  Builder<TrailEvent>  $base
+     * @return list<array{bucket: string, count: int, unique_subjects: int}>
+     */
+    private function series(Builder $base, string $period): array
+    {
+        $format = match ($period) {
+            'hour' => 'Y-m-d H:00',
+            'week' => 'o-\WW',
+            'month' => 'Y-m',
+            default => 'Y-m-d',
+        };
+
+        $grouped = (clone $base)
+            ->get(['occurred_at', 'subject_id'])
+            ->groupBy(fn (TrailEvent $event): string => $event->occurred_at->format($format));
+
+        $series = [];
+
+        foreach ($grouped as $key => $group) {
+            $series[] = [
+                'bucket' => (string) $key,
+                'count' => $group->count(),
+                'unique_subjects' => $group->whereNotNull('subject_id')->pluck('subject_id')->unique()->count(),
+            ];
+        }
+
+        usort($series, fn (array $a, array $b): int => $a['bucket'] <=> $b['bucket']);
+
+        return $series;
     }
 }

@@ -7,6 +7,7 @@ namespace Trail\Trail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Support\ContextCapture;
 
 class PendingEvent
 {
@@ -84,16 +85,38 @@ class PendingEvent
     {
         $subject = $this->resolveSubject();
 
+        $context = array_merge($this->captureContext(), $this->context);
+
         return $this->recorders->driver($this->recorder)->record([
             'name' => $name,
             'subject_type' => $subject?->getMorphClass(),
             'subject_id' => $subject?->getKey(),
             'session_id' => $this->sessionId,
             'properties' => $properties ?: null,
-            'context' => $this->context ?: null,
+            'context' => $context !== [] ? $context : null,
             'value' => $value,
             'occurred_at' => Carbon::now(),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function captureContext(): array
+    {
+        if (! app()->bound('request')) {
+            return [];
+        }
+
+        $request = request();
+
+        // Only enrich for a real, routed HTTP request — never for console
+        // commands or queue workers (whose bound request has no route).
+        if ($request->route() === null) {
+            return [];
+        }
+
+        return app(ContextCapture::class)->fromRequest($request);
     }
 
     protected function resolveSubject(): ?Model
