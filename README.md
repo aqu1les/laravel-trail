@@ -31,7 +31,7 @@ Most analytics tools answer "how many" really well and "who, exactly, and what d
 - **Polymorphic by design.** Track any model, not just users.
 - **Your database, your rules.** Uses your default connection. Point it elsewhere if you want.
 - **Three recording modes.** Synchronous, queued, or batched - pick your latency/throughput trade-off.
-- **Privacy first.** IPs are anonymized by default and event *content* is never stored - only metadata.
+- **Privacy first.** IPs are anonymized by default and event *content* is never stored - only metadata. Console context (hostname, PID, command) is captured in the same spirit: opt-in for anything sensitive.
 
 ## Requirements
 
@@ -293,10 +293,21 @@ A few of the knobs in `config/trail.php`:
     'store_user_agent' => true,
 ],
 
+'console' => [
+    'capture_hostname'          => true,
+    'capture_pid'               => true,
+    'capture_command'           => true,
+    'capture_command_arguments' => false, // opt-in - may expose sensitive values
+    'capture_server_ip'         => false, // opt-in
+],
+
 'retention' => [
     'events_days'     => env('TRAIL_RETENTION_DAYS', 90),
     'aggregates_days' => 730,
 ],
+
+// Set to a class name implementing ContextCaptureContract to swap context capture entirely.
+'context_capture' => null,
 ```
 
 Because the config is published into your app, you override values by editing the file - no environment variables required for things like the subject model.
