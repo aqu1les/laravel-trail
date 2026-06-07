@@ -8,6 +8,8 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Queries\EventQuery;
+use Trail\Trail\Support\FunnelReport;
 
 class Trail
 {
@@ -93,5 +95,32 @@ class Trail
     public function track(string $name, array $properties = [], ?float $value = null): ?TrailEvent
     {
         return $this->newPendingEvent()->track($name, $properties, $value);
+    }
+
+    /**
+     * Start a fluent read query over recorded events.
+     */
+    public function events(): EventQuery
+    {
+        return new EventQuery;
+    }
+
+    /**
+     * Start a read query scoped to a single event name.
+     */
+    public function count(string $name): EventQuery
+    {
+        return $this->events()->named($name);
+    }
+
+    /**
+     * Build a funnel conversion report for an ordered list of event names.
+     *
+     * @param  array<int, string>  $steps
+     * @return array<string, mixed>
+     */
+    public function funnel(array $steps): array
+    {
+        return app(FunnelReport::class)->build(array_values($steps));
     }
 }

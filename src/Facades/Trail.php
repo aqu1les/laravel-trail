@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Trail\Trail\PendingEvent queue()
  * @method static \Trail\Trail\PendingEvent ingest()
  * @method static \Trail\Trail\Models\TrailEvent|null track(string $name, array<string, mixed> $properties = [], ?float $value = null)
+ * @method static \Trail\Trail\Queries\EventQuery events()
+ * @method static \Trail\Trail\Queries\EventQuery count(string $name)
+ * @method static array<string, mixed> funnel(array<int, string> $steps)
  *
  * @see \Trail\Trail\Trail
  */
