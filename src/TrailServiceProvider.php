@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Trail\Trail;
 
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Console\AggregateCommand;
 use Trail\Trail\Console\InstallCommand;
 use Trail\Trail\Console\PruneCommand;
+use Trail\Trail\Contracts\EventBuffer;
 use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
-use Trail\Trail\Support\EventBuffer;
+use Trail\Trail\Support\MemoryEventBuffer;
+use Trail\Trail\Support\RedisEventBuffer;
 
 class TrailServiceProvider extends ServiceProvider
 {
@@ -30,9 +33,19 @@ class TrailServiceProvider extends ServiceProvider
             $app->make(RecorderManager::class)
         ));
 
-        $this->app->singleton(EventBuffer::class, fn () => new EventBuffer(
-            flushAt: (int) config('trail.ingest.flush_at', 100),
-        ));
+        $this->app->singleton(EventBuffer::class, function (Application $app): EventBuffer {
+            $flushAt = (int) config('trail.ingest.flush_at', 100);
+
+            if (config('trail.ingest.buffer') === 'redis') {
+                return new RedisEventBuffer(
+                    $app->make(Redis::class),
+                    $flushAt,
+                    config('trail.ingest.connection'),
+                );
+            }
+
+            return new MemoryEventBuffer($flushAt);
+        });
     }
 
     /**
