@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 use Trail\Trail\Trail;
 
-beforeEach(function () {
-    Trail::auth(fn () => true);
-});
-
-afterEach(function () {
-    Trail::auth(null);
-});
+beforeEach(fn () => Trail::auth(fn () => true));
+afterEach(fn () => Trail::auth(null));
 
 it('renders the Overview screen at the dashboard root', function () {
     $this->get('/trail')
@@ -22,7 +17,6 @@ it('renders the Overview screen at the dashboard root', function () {
 it('renders the Events Explorer screen', function () {
     $this->get('/trail/events')
         ->assertOk()
-        ->assertSee('id="liveBtn"', false)
         ->assertSee('Buscar evento, ator, propriedade', false);
 });
 
@@ -30,7 +24,7 @@ it('renders the Subject Timeline screen', function () {
     $this->get('/trail/timeline')
         ->assertOk()
         ->assertSee('Subject Timeline', false)
-        ->assertSee('id="profile"', false);
+        ->assertSee('Copiar ID do ator', false);
 });
 
 it('renders the Design System showcase', function () {
@@ -46,5 +40,5 @@ it('links every screen through the shared sidebar', function () {
         ->toContain(route('trail.events'))
         ->toContain(route('trail.timeline'))
         ->toContain(route('trail.design-system'))
-        ->toContain('/trail/trail.css'); // design-system stylesheet wired in
+        ->toContain('/trail/trail.css');
 });

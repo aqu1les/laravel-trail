@@ -8,15 +8,19 @@ use Trail\Trail\Http\Controllers\Api\FunnelController;
 use Trail\Trail\Http\Controllers\Api\MetricsController;
 use Trail\Trail\Http\Controllers\AssetController;
 use Trail\Trail\Http\Controllers\DashboardController;
+use Trail\Trail\Livewire\Events;
+use Trail\Trail\Livewire\Overview;
+use Trail\Trail\Livewire\SubjectTimeline;
 
 // Embedded design-system stylesheet — served so the dashboard renders
 // on a fresh install without `vendor:publish`.
 Route::get('trail.css', [AssetController::class, 'css'])->name('styles');
 
-// Dashboard screens (server-rendered Blade consuming the design system).
-Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-Route::get('events', [DashboardController::class, 'events'])->name('events');
-Route::get('timeline', [DashboardController::class, 'timeline'])->name('timeline');
+// Dashboard screens — full-page Livewire components consuming the design system.
+Route::get('/', Overview::class)->name('dashboard');
+Route::get('events', Events::class)->name('events');
+Route::get('timeline', SubjectTimeline::class)->name('timeline');
+// Static design-system showcase (no Livewire needed).
 Route::get('design-system', [DashboardController::class, 'designSystem'])->name('design-system');
 
 Route::prefix('api')->name('api.')->group(function () {
