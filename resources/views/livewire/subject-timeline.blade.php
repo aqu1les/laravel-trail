@@ -3,13 +3,7 @@
   @include('trail::livewire.subject-timeline-index')
 @else
 @php
-    $icons = [
-        'auth' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/></svg>',
-        'commerce' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>',
-        'onboarding' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>',
-        'integration' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0z"/><path d="M12 16v6"/></svg>',
-        'system' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
-    ];
+    $eventIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
     $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? '['.count($v).']' : (is_string($v) ? $v : (string) $v));
 @endphp
 
@@ -87,9 +81,8 @@
         <div class="flex items-center gap-2 flex-wrap">
           <span class="ds-label mr-1" style="align-self:center">{{ count($events) }} eventos</span>
           @foreach ($types as $t)
-            @php($cat = $cats[$t['cat']])
-            <button class="trail-badge" wire:click="toggleType('{{ $t['name'] }}')" style="cursor:pointer;height:24px;{{ $t['on'] ? "background:{$cat['color']};color:#fff;border-color:transparent" : 'background:var(--trail-surface-2);color:var(--trail-text-muted);border:1px solid var(--trail-border)' }}">
-              <span class="cat-dot" style="width:6px;height:6px;border-radius:2px;background:{{ $t['on'] ? '#fff' : $cat['color'] }};display:inline-block"></span>
+            <button class="trail-badge" wire:click="toggleType('{{ $t['name'] }}')" style="cursor:pointer;height:24px;{{ $t['on'] ? "background:{$t['color']};color:#fff;border-color:transparent" : 'background:var(--trail-surface-2);color:var(--trail-text-muted);border:1px solid var(--trail-border)' }}">
+              <span class="cat-dot" style="width:6px;height:6px;border-radius:2px;background:{{ $t['on'] ? '#fff' : $t['color'] }};display:inline-block"></span>
               <span class="trail-mono" style="font-size:11px">{{ $t['name'] }}</span>
             </button>
           @endforeach
@@ -112,9 +105,8 @@
             </div>
             <div class="trail-timeline">
               @foreach ($g['items'] as $e)
-                @php($c = $cats[$e['cat']])
                 <div class="trail-tl-row">
-                  <div class="trail-tl-node" style="color:{{ $c['color'] }};border-color:color-mix(in srgb, {{ $c['color'] }} 35%, var(--trail-border))">{!! $icons[$e['cat']] !!}</div>
+                  <div class="trail-tl-node" style="color:{{ $e['color'] }};border-color:color-mix(in srgb, {{ $e['color'] }} 35%, var(--trail-border))">{!! $eventIcon !!}</div>
                   <div class="trail-tl-card" x-data="{ exp: false }" :class="exp ? 'expanded' : ''" x-on:click="exp = !exp">
                     <div class="flex items-center gap-2">
                       <span class="trail-mono" style="font-size:13px;color:var(--trail-text)">{{ $e['name'] }}</span>

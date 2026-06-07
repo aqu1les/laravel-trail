@@ -136,7 +136,6 @@ class Events extends Component
 
     public function render(): View
     {
-        $cats = Sample::categories();
         $all = $this->sourceEvents();
 
         $visible = array_values(array_filter($all, function (array $e): bool {
@@ -168,7 +167,6 @@ class Events extends Component
             : null;
 
         return view('trail::livewire.events', [
-            'cats' => $cats,
             'visible' => $visible,
             'names' => $names,
             'actors' => $actors,

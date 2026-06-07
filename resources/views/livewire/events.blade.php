@@ -88,10 +88,9 @@
         </thead>
         <tbody>
           @foreach ($visible as $e)
-            @php($c = $cats[$e['cat']])
             <tr wire:key="evt-{{ $e['id'] }}" wire:click="select({{ $e['id'] }})" class="{{ $e['id'] === $newId ? 'trail-row-new' : '' }}">
               <td><div class="flex items-center gap-2.5">
-                <span class="cat-dot" style="background:{{ $c['color'] }}"></span>
+                <span class="cat-dot" style="background:{{ $e['color'] }}"></span>
                 <span class="trail-mono" style="font-size:13px">{{ $e['name'] }}</span>
               </div></td>
               <td><div class="flex items-center gap-2">
@@ -133,11 +132,10 @@
     <div class="trail-drawer-overlay" @click="open = false" :style="open ? 'opacity:1;pointer-events:auto' : 'opacity:0;pointer-events:none'"></div>
     <aside class="trail-drawer trail-scroll" style="overflow:auto" :style="open ? 'transform:translateX(0)' : 'transform:translateX(110%)'">
       @if ($selected)
-        @php($c = $cats[$selected['cat']])
         <div x-data="{ tab: 'props' }">
           <div class="trail-card-head" style="border-radius:0;position:sticky;top:0;background:var(--trail-surface);z-index:2">
             <div class="flex items-center gap-2 min-w-0">
-              <span class="cat-dot" style="background:{{ $c['color'] }}"></span>
+              <span class="cat-dot" style="background:{{ $selected['color'] }}"></span>
               <span class="trail-tag" style="font-size:13px">{{ $selected['name'] }}</span>
               @if ($selected['value'] !== null)
                 <span class="trail-badge trail-badge-success">value {{ number_format($selected['value'], 2, ',', '.') }}</span>

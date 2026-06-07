@@ -16,18 +16,6 @@ use Illuminate\Support\Carbon;
  */
 final class Sample
 {
-    /** Event categories → colour token + label. */
-    public static function categories(): array
-    {
-        return [
-            'auth' => ['color' => 'var(--trail-chart-3)', 'label' => 'Auth'],
-            'commerce' => ['color' => 'var(--trail-chart-1)', 'label' => 'Commerce'],
-            'onboarding' => ['color' => 'var(--trail-chart-2)', 'label' => 'Onboarding'],
-            'integration' => ['color' => 'var(--trail-chart-4)', 'label' => 'Integration'],
-            'system' => ['color' => 'var(--trail-chart-5)', 'label' => 'System'],
-        ];
-    }
-
     /** Known actors (the polymorphic subjects). */
     public static function actors(): array
     {
@@ -43,27 +31,35 @@ final class Sample
         ];
     }
 
-    /** Event templates: name → category + property factory + optional value. */
+    /** Event templates: name → property factory + optional value. */
     private static function templates(): array
     {
         return [
-            ['name' => 'order.placed', 'cat' => 'commerce', 'value' => fn () => round(mt_rand(2000, 42000) / 100, 2),
+            ['name' => 'order.placed', 'value' => fn () => round(mt_rand(2000, 42000) / 100, 2),
                 'props' => fn () => ['amount' => round(mt_rand(2000, 42000) / 100, 2), 'currency' => 'BRL', 'items' => mt_rand(1, 5), 'first_order' => mt_rand(0, 9) < 3]],
-            ['name' => 'user.signed_up', 'cat' => 'auth',
+            ['name' => 'user.signed_up',
                 'props' => fn () => ['plan' => self::pick(['free', 'pro', 'team']), 'method' => self::pick(['email', 'google', 'github']), 'referrer' => self::pick(['organic', 'ads', 'invite'])]],
-            ['name' => 'onboarding.step_completed', 'cat' => 'onboarding',
+            ['name' => 'onboarding.step_completed',
                 'props' => fn () => ['step' => self::pick(['profile', 'workspace', 'invite', 'first_event']), 'index' => mt_rand(1, 4), 'duration_ms' => mt_rand(800, 9000)]],
-            ['name' => 'whatsapp.connected', 'cat' => 'integration',
+            ['name' => 'whatsapp.connected',
                 'props' => fn () => ['provider' => 'meta_cloud', 'phone_masked' => '+55 11 9••••-'.mt_rand(1000, 9999), 'verified' => true]],
-            ['name' => 'cart.updated', 'cat' => 'commerce',
+            ['name' => 'cart.updated',
                 'props' => fn () => ['items' => mt_rand(1, 8), 'total' => round(mt_rand(1000, 61000) / 100, 2), 'currency' => 'BRL']],
-            ['name' => 'invoice.paid', 'cat' => 'commerce', 'value' => fn () => round(mt_rand(4900, 94900) / 100, 2),
+            ['name' => 'invoice.paid', 'value' => fn () => round(mt_rand(4900, 94900) / 100, 2),
                 'props' => fn () => ['amount' => round(mt_rand(4900, 94900) / 100, 2), 'plan' => self::pick(['pro', 'team']), 'period' => 'monthly']],
-            ['name' => 'user.logged_in', 'cat' => 'auth',
+            ['name' => 'user.logged_in',
                 'props' => fn () => ['method' => self::pick(['email', 'google', 'sso']), 'ip_masked' => '187.•••.•••.'.mt_rand(2, 254)]],
-            ['name' => 'session.started', 'cat' => 'system',
+            ['name' => 'session.started',
                 'props' => fn () => ['device' => self::pick(['desktop', 'mobile', 'tablet']), 'os' => self::pick(['macOS', 'Windows', 'iOS', 'Android']), 'app_version' => '2.'.mt_rand(1, 9).'.'.mt_rand(0, 9)]],
         ];
+    }
+
+    /** Derive a stable color from an event name using the chart palette. */
+    public static function colorFor(string $name): string
+    {
+        $index = (crc32($name) % 5 + 5) % 5 + 1;
+
+        return "var(--trail-chart-{$index})";
     }
 
     /** Build a single event at the given epoch-millis timestamp. */
@@ -75,7 +71,7 @@ final class Sample
         return [
             'id' => $id,
             'name' => $t['name'],
-            'cat' => $t['cat'],
+            'color' => self::colorFor($t['name']),
             'actor' => $actor,
             'value' => isset($t['value']) ? ($t['value'])() : null,
             'props' => ($t['props'])(),
@@ -132,7 +128,7 @@ final class Sample
         return [
             'id' => $id,
             'name' => $name,
-            'cat' => $t['cat'],
+            'color' => self::colorFor($name),
             'value' => isset($t['value']) ? ($t['value'])() : null,
             'props' => ($t['props'])(),
             'context' => [

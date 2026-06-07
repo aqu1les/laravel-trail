@@ -13,18 +13,12 @@ use Trail\Trail\Models\TrailEvent;
  */
 trait ResolvesEvents
 {
-    /** Derive a display category from the event name's domain prefix. */
-    protected function categoryFor(string $name): string
+    /** Derive a stable color from the event name using the dashboard's chart palette. */
+    protected function colorFor(string $name): string
     {
-        $prefix = strtok($name, '.') ?: $name;
+        $index = (crc32($name) % 5 + 5) % 5 + 1;
 
-        return match (true) {
-            in_array($prefix, ['order', 'invoice', 'cart', 'subscription', 'checkout', 'payment'], true) => 'commerce',
-            in_array($prefix, ['user', 'auth', 'login', 'account'], true) => 'auth',
-            $prefix === 'onboarding' => 'onboarding',
-            in_array($prefix, ['whatsapp', 'integration', 'webhook', 'sync'], true) => 'integration',
-            default => 'system',
-        };
+        return "var(--trail-chart-{$index})";
     }
 
     /** Resolve the actor's display identity from the morphTo subject. */
@@ -49,7 +43,7 @@ trait ResolvesEvents
         return [
             'id' => $event->id,
             'name' => $event->name,
-            'cat' => $this->categoryFor($event->name),
+            'color' => $this->colorFor($event->name),
             'actor' => $this->subjectLabel($event),
             'subject_key' => $event->subject_type !== null && $event->subject_id !== null
                 ? $event->subject_type.'|'.$event->subject_id

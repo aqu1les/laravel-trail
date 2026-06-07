@@ -179,8 +179,6 @@ class SubjectTimeline extends Component
 
     public function render(): View
     {
-        $cats = Sample::categories();
-
         if (! $this->demo && $this->actorId === '') {
             ['actors' => $allActors, 'distinctTypes' => $distinctTypes] = $this->indexActors();
 
@@ -191,7 +189,6 @@ class SubjectTimeline extends Component
             $paged = array_slice($allActors, ($page - 1) * $perPage, $perPage);
 
             return view('trail::livewire.subject-timeline', [
-                'cats' => $cats,
                 'indexMode' => true,
                 'actors' => $paged,
                 'total' => $total,
@@ -237,7 +234,7 @@ class SubjectTimeline extends Component
         $types = collect($events)->pluck('name')->unique()->sort()->values()
             ->map(fn ($name) => [
                 'name' => $name,
-                'cat' => collect($events)->firstWhere('name', $name)['cat'],
+                'color' => Sample::colorFor($name),
                 'on' => in_array($name, $this->activeTypes, true),
             ])->all();
 
@@ -256,7 +253,6 @@ class SubjectTimeline extends Component
         }
 
         return view('trail::livewire.subject-timeline', [
-            'cats' => $cats,
             'indexMode' => false,
             'actor' => $actor,
             'groups' => $groups,
