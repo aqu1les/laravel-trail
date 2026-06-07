@@ -1,6 +1,6 @@
 @use('Trail\Trail\Livewire\Sample')
 @php
-    $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_string($v) ? $v : (string) $v);
+    $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? '['.count($v).']' : (is_string($v) ? $v : (string) $v));
     $actorLabel = $actorFilter
         ? (collect($actors)->firstWhere('id', $actorFilter)['name'] ?? 'Ator')
         : 'Todos os atores';
