@@ -37,6 +37,9 @@ class Events extends Component
 
     public ?int $newId = null;
 
+    /** Highest event id seen, so the live poll can skip idle ticks (real mode). */
+    public ?int $lastSeenId = null;
+
     public function mount(bool $demo = false): void
     {
         $this->demo = $demo;
@@ -44,7 +47,11 @@ class Events extends Component
         if ($this->demo) {
             $this->events = Sample::stream(50);
             $this->seq = count($this->events);
+
+            return;
         }
+
+        $this->lastSeenId = (int) (Trail::events()->toBuilder()->max('id') ?? 0);
     }
 
     /** Live stream tick (wire:poll target). */
@@ -54,13 +61,27 @@ class Events extends Component
             return;
         }
 
-        // Demo: synthesise an event. Real: the re-render re-queries the table.
+        // Demo: synthesise an event.
         if ($this->demo) {
             $event = Sample::makeEvent((int) (microtime(true) * 1000), ++$this->seq);
             array_unshift($this->events, $event);
             $this->events = array_slice($this->events, 0, 200);
             $this->newId = $event['id'];
+
+            return;
         }
+
+        // Real: a cheap PK-indexed max(id) check. Only re-query the table (and
+        // re-render) when something new actually landed; otherwise skip.
+        $maxId = (int) (Trail::events()->toBuilder()->max('id') ?? 0);
+        if ($this->lastSeenId !== null && $maxId <= $this->lastSeenId) {
+            $this->skipRender();
+
+            return;
+        }
+
+        $this->newId = $maxId;
+        $this->lastSeenId = $maxId;
     }
 
     public function toggleLive(): void

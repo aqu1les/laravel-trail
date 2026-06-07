@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Livewire\Livewire;
 use Trail\Trail\Livewire\Events;
+use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Tests\Fixtures\User;
 use Trail\Trail\Trail;
 
 beforeEach(fn () => Trail::auth(fn () => true));
@@ -43,4 +45,23 @@ it('opens the drawer for a selected event', function () {
         ->call('select', 1)
         ->assertSet('selectedId', 1)
         ->assertDispatched('drawer-open');
+});
+
+it('only refreshes the real stream when new events arrive', function () {
+    $component = Livewire::test(Events::class)->assertSet('lastSeenId', 0);
+
+    // Idle tick: nothing new, lastSeenId stays put.
+    $component->call('tick')->assertSet('lastSeenId', 0);
+
+    // A new event lands: the tick advances and the table re-renders.
+    $event = TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 1,
+        'occurred_at' => now(),
+    ]);
+
+    $component->call('tick')
+        ->assertSet('lastSeenId', $event->id)
+        ->assertSee('order.placed', false);
 });
