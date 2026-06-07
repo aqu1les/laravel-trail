@@ -27,7 +27,7 @@ class SubjectTimeline extends Component
     public array $activeTypes = [];
 
     /** @var list<array<string,mixed>> Demo history buffer (demo mode only). */
-    public array $events = [];
+    public array $demoEvents = [];
 
     // Index mode filters and pagination (real mode, no actor selected).
     #[Url]
@@ -45,7 +45,7 @@ class SubjectTimeline extends Component
 
         if ($this->demo) {
             $this->actorId = Sample::actors()[0]['id'];
-            $this->events = Sample::actorHistory($this->demoActor());
+            $this->demoEvents = Sample::actorHistory($this->demoActor());
         }
         // Real mode: actorId stays '' if not in URL, which shows the actors index.
     }
@@ -57,7 +57,7 @@ class SubjectTimeline extends Component
         $this->actorSearch = '';
 
         if ($this->demo) {
-            $this->events = Sample::actorHistory($this->demoActor());
+            $this->demoEvents = Sample::actorHistory($this->demoActor());
         }
     }
 
@@ -203,7 +203,7 @@ class SubjectTimeline extends Component
 
         if ($this->demo) {
             $actor = $this->demoActor();
-            $events = $this->events;
+            $events = $this->demoEvents;
             $results = array_map(fn ($a) => $a + ['key' => $a['id']], Sample::actors());
         } else {
             $actors = $this->realActors();
