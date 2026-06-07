@@ -2,7 +2,7 @@
 @php
     $chip = fn ($v) => is_bool($v) ? ($v ? 'true' : 'false') : (is_array($v) ? '['.count($v).']' : (is_string($v) ? $v : (string) $v));
     $actorLabel = $actorFilter
-        ? (collect($actors)->firstWhere('id', $actorFilter)['name'] ?? 'Ator')
+        ? (collect($actors)->firstWhere('key', $actorFilter)['name'] ?? 'Ator')
         : 'Todos os atores';
 @endphp
 
@@ -59,7 +59,7 @@
           <span class="trail-menu-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>Todos os atores
         </div>
         @foreach ($actors as $a)
-          <div class="trail-menu-item" aria-checked="{{ $actorFilter === $a['id'] ? 'true' : 'false' }}" wire:click="setActor('{{ $a['id'] }}')">
+          <div class="trail-menu-item" aria-checked="{{ $actorFilter === $a['key'] ? 'true' : 'false' }}" data-key="{{ $a['key'] }}" @click="$wire.setActor($el.dataset.key)">
             <span class="trail-avatar trail-avatar-sm">{{ Sample::initials($a['name']) }}</span>
             <div style="min-width:0"><div style="font-size:13px;color:var(--trail-text)">{{ $a['name'] }}</div><div class="ds-label">{{ $a['type'] }} · {{ $a['id'] }}</div></div>
           </div>
@@ -152,7 +152,9 @@
                 <div class="font-semibold text-sm flex items-center gap-2">{{ $selected['actor']['name'] }}<span class="trail-badge trail-badge-outline">{{ $selected['actor']['type'] }}</span></div>
                 <div class="ds-label">{{ $selected['actor']['id'] }} · {{ Sample::relative($selected['ts']) }}</div>
               </div>
-              <a href="{{ route('trail.timeline') }}" class="trail-btn trail-btn-ghost trail-btn-sm ml-auto shrink-0">Ver timeline →</a>
+              @if (($selected['subject_key'] ?? '') !== '')
+                <a href="{{ route('trail.timeline', ['actor' => $selected['subject_key']]) }}" class="trail-btn trail-btn-ghost trail-btn-sm ml-auto shrink-0">Ver timeline →</a>
+              @endif
             </div>
             <div class="trail-tabs mb-3">
               <button :aria-selected="tab === 'props' ? 'true' : 'false'" @click="tab = 'props'">Propriedades</button>

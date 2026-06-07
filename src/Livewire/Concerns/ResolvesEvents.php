@@ -51,6 +51,9 @@ trait ResolvesEvents
             'name' => $event->name,
             'cat' => $this->categoryFor($event->name),
             'actor' => $this->subjectLabel($event),
+            'subject_key' => $event->subject_type !== null && $event->subject_id !== null
+                ? $event->subject_type.'|'.$event->subject_id
+                : '',
             'value' => $event->value !== null ? (float) $event->value : null,
             'props' => $event->properties ?? [],
             'context' => $event->context ?? [],

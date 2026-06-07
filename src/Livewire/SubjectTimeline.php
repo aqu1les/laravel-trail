@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
@@ -17,6 +18,7 @@ class SubjectTimeline extends Component
     public bool $demo = false;
 
     /** Selection token: a Sample actor id (demo) or "subject_type|subject_id" (real). */
+    #[Url(as: 'actor')]
     public string $actorId = '';
 
     public string $actorSearch = '';
@@ -27,6 +29,16 @@ class SubjectTimeline extends Component
     /** @var list<array<string,mixed>> Demo history buffer (demo mode only). */
     public array $events = [];
 
+    // Index mode filters and pagination (real mode, no actor selected).
+    #[Url]
+    public string $typeFilter = '';
+
+    #[Url]
+    public string $indexSearch = '';
+
+    #[Url]
+    public int $page = 1;
+
     public function mount(bool $demo = false): void
     {
         $this->demo = $demo;
@@ -34,11 +46,8 @@ class SubjectTimeline extends Component
         if ($this->demo) {
             $this->actorId = Sample::actors()[0]['id'];
             $this->events = Sample::actorHistory($this->demoActor());
-
-            return;
         }
-
-        $this->actorId = $this->realActors()[0]['key'] ?? '';
+        // Real mode: actorId stays '' if not in URL, which shows the actors index.
     }
 
     public function selectActor(string $id): void
@@ -61,6 +70,24 @@ class SubjectTimeline extends Component
         }
     }
 
+    public function filterByType(string $type): void
+    {
+        $this->typeFilter = $type;
+        $this->page = 1;
+    }
+
+    public function clearIndex(): void
+    {
+        $this->typeFilter = '';
+        $this->indexSearch = '';
+        $this->page = 1;
+    }
+
+    public function updatedIndexSearch(): void
+    {
+        $this->page = 1;
+    }
+
     private function demoActor(): array
     {
         $actor = collect(Sample::actors())->firstWhere('id', $this->actorId) ?? Sample::actors()[0];
@@ -68,7 +95,7 @@ class SubjectTimeline extends Component
         return $actor + ['key' => $actor['id']];
     }
 
-    /** Distinct real subjects with resolved identity, most active first. */
+    /** Distinct real subjects with resolved identity, most active first (used by timeline switcher). */
     private function realActors(): array
     {
         $rows = Trail::events()->toBuilder()->reorder()
@@ -95,9 +122,85 @@ class SubjectTimeline extends Component
         })->all();
     }
 
+    /** All actors for the index page, with search + type filter applied in PHP after identity resolution. */
+    private function indexActors(): array
+    {
+        $distinctTypes = Trail::events()->toBuilder()->reorder()
+            ->select('subject_type')
+            ->whereNotNull('subject_type')
+            ->distinct()
+            ->pluck('subject_type')
+            ->filter()
+            ->map(fn ($t) => ['value' => $t, 'label' => class_basename($t)])
+            ->sortBy('label')
+            ->values()
+            ->all();
+
+        $rows = Trail::events()->toBuilder()->reorder()
+            ->selectRaw('subject_type, subject_id, count(*) as total, max(occurred_at) as last_seen')
+            ->whereNotNull('subject_id')
+            ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter))
+            ->groupBy('subject_type', 'subject_id')
+            ->orderByDesc('total')
+            ->get();
+
+        $identities = $this->resolveIdentities(
+            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
+        );
+
+        $actors = $rows->map(function ($row) use ($identities): array {
+            $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
+            $key = $row->subject_type.'|'.$row->subject_id;
+            $identity = $identities[$key] ?? null;
+
+            return [
+                'key' => $key,
+                'name' => $identity['name'] ?? "{$type} #{$row->subject_id}",
+                'type' => $type,
+                'id' => (string) $row->subject_id,
+                'email' => $identity['email'] ?? null,
+                'total' => (int) $row->total,
+                'last_seen' => $row->last_seen !== null
+                    ? (int) (strtotime((string) $row->last_seen) * 1000)
+                    : null,
+            ];
+        })->all();
+
+        if ($this->indexSearch !== '') {
+            $term = mb_strtolower($this->indexSearch);
+            $actors = array_values(array_filter($actors, fn ($a) =>
+                str_contains(mb_strtolower($a['id']), $term) ||
+                str_contains(mb_strtolower($a['name']), $term) ||
+                str_contains(mb_strtolower($a['email'] ?? ''), $term)
+            ));
+        }
+
+        return ['actors' => $actors, 'distinctTypes' => $distinctTypes];
+    }
+
     public function render(): View
     {
         $cats = Sample::categories();
+
+        if (! $this->demo && $this->actorId === '') {
+            ['actors' => $allActors, 'distinctTypes' => $distinctTypes] = $this->indexActors();
+
+            $perPage = 25;
+            $total = count($allActors);
+            $totalPages = max(1, (int) ceil($total / $perPage));
+            $page = max(1, min($this->page, $totalPages));
+            $paged = array_slice($allActors, ($page - 1) * $perPage, $perPage);
+
+            return view('trail::livewire.subject-timeline', [
+                'cats' => $cats,
+                'indexMode' => true,
+                'actors' => $paged,
+                'total' => $total,
+                'page' => $page,
+                'totalPages' => $totalPages,
+                'distinctTypes' => $distinctTypes,
+            ])->layout('trail::layout', ['active' => 'timeline', 'title' => 'Subject Timeline']);
+        }
 
         if ($this->demo) {
             $actor = $this->demoActor();
@@ -155,9 +258,11 @@ class SubjectTimeline extends Component
 
         return view('trail::livewire.subject-timeline', [
             'cats' => $cats,
+            'indexMode' => false,
             'actor' => $actor,
             'groups' => $groups,
             'types' => $types,
+            'events' => $events,
             'empty' => $filtered === [],
             'stats' => [
                 'total' => count($events),

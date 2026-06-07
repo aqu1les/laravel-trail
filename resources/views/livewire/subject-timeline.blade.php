@@ -1,4 +1,7 @@
 @use('Trail\Trail\Livewire\Sample')
+@if ($indexMode ?? false)
+  @include('trail::livewire.subject-timeline-index')
+@else
 @php
     $icons = [
         'auth' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/></svg>',
@@ -27,7 +30,7 @@
       </div>
       <div class="trail-menu trail-scroll" x-show="open" x-cloak style="position:absolute;top:calc(100% + 6px);right:0;left:0;z-index:30;max-height:320px;overflow:auto">
         @forelse ($results as $a)
-          <div class="trail-menu-item" wire:click="selectActor('{{ $a['key'] }}')" x-on:click="open = false" @if ($a['key'] === $actor['key']) aria-checked="true" @endif>
+          <div class="trail-menu-item" data-key="{{ $a['key'] }}" @click="$wire.selectActor($el.dataset.key); open = false" @if ($a['key'] === $actor['key']) aria-checked="true" @endif>
             <span class="trail-avatar trail-avatar-sm">{{ Sample::initials($a['name']) }}</span>
             <div style="min-width:0;flex:1"><div style="font-size:13px;color:var(--trail-text)">{{ $a['name'] }}</div><div class="ds-label">{{ $a['type'] }} · {{ $a['id'] }}</div></div>
             @if ($a['key'] === $actor['key'])<span class="trail-badge trail-badge-accent">atual</span>@endif
@@ -135,3 +138,4 @@
     </div>
   </div>
 </div>
+@endif

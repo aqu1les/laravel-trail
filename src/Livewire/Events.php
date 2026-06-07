@@ -143,7 +143,7 @@ class Events extends Component
             if ($this->eventFilter !== [] && ! in_array($e['name'], $this->eventFilter, true)) {
                 return false;
             }
-            if ($this->actorFilter !== null && $e['actor']['id'] !== $this->actorFilter) {
+            if ($this->actorFilter !== null && ($e['subject_key'] ?? '') !== $this->actorFilter) {
                 return false;
             }
             if ($this->search !== '') {
@@ -158,8 +158,10 @@ class Events extends Component
 
         $names = collect($all)->pluck('name')->unique()->sort()->values()->all();
 
-        $actors = collect($all)->pluck('actor')->unique('id')->values()
-            ->reject(fn ($a) => $a['id'] === '-')->values()->all();
+        $actors = collect($all)
+            ->reject(fn ($e) => ($e['subject_key'] ?? '') === '')
+            ->map(fn ($e) => $e['actor'] + ['key' => $e['subject_key']])
+            ->unique('key')->values()->all();
 
         $selected = $this->selectedId !== null
             ? collect($all)->firstWhere('id', $this->selectedId)

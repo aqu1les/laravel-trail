@@ -24,7 +24,7 @@ it('renders the Subject Timeline screen', function () {
     $this->get('/trail/timeline')
         ->assertOk()
         ->assertSee('Subject Timeline', false)
-        ->assertSee('Copiar ID do ator', false);
+        ->assertSee('Buscar por nome, email ou ID', false);
 });
 
 it('renders the Design System showcase', function () {

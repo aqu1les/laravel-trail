@@ -34,7 +34,8 @@ it('aggregates real events on the Overview', function () {
 
 it('builds a real subject timeline', function () {
     seedTrailEvent();
-    $this->get('/trail/timeline')->assertOk()->assertSee('order.placed', false);
+    $actor = urlencode(User::class.'|1');
+    $this->get('/trail/timeline?actor='.$actor)->assertOk()->assertSee('order.placed', false);
 });
 
 it('shows empty screens when there are no events', function () {
