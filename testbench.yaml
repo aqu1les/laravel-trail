@@ -1,0 +1,17 @@
+providers:
+  - Trail\Trail\TrailServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+
+workbench:
+  start: '/trail'
+  install: true
+  discovers:
+    web: true
+    api: false
+    commands: true
+  build:
+    - create-sqlite-db
+    - migrate-fresh
+    - db-seed:
+        '--class': 'Workbench\Database\Seeders\DatabaseSeeder'
+    - asset-publish
