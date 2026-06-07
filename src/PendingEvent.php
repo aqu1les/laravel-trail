@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Trail\Trail;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Support\ContextCapture;
@@ -87,9 +88,18 @@ class PendingEvent
 
         $context = array_merge($this->captureContext(), $this->context);
 
+        if ($subject !== null) {
+            $class = \get_class($subject);
+            $subjectType = \in_array($class, Relation::morphMap(), true)
+                ? $subject->getMorphClass()
+                : $class;
+        } else {
+            $subjectType = null;
+        }
+
         return $this->recorders->driver($this->recorder)->record([
             'name' => $name,
-            'subject_type' => $subject?->getMorphClass(),
+            'subject_type' => $subjectType,
             'subject_id' => $subject?->getKey(),
             'session_id' => $this->sessionId,
             'properties' => $properties ?: null,
