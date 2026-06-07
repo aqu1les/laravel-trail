@@ -16,12 +16,20 @@ use Trail\Trail\Livewire\SubjectTimeline;
 // on a fresh install without `vendor:publish`.
 Route::get('trail.css', [AssetController::class, 'css'])->name('styles');
 
-// Dashboard screens — full-page Livewire components consuming the design system.
+// Dashboard screens — full-page Livewire components on real tracking data.
 Route::get('/', Overview::class)->name('dashboard');
 Route::get('events', Events::class)->name('events');
 Route::get('timeline', SubjectTimeline::class)->name('timeline');
 // Static design-system showcase (no Livewire needed).
 Route::get('design-system', [DashboardController::class, 'designSystem'])->name('design-system');
+
+// Demo screens with sample data — local environment only, for previewing the UI
+// without real events. The same components rendered with demo = true.
+if (app()->environment('local')) {
+    Route::get('demo', Overview::class)->defaults('demo', true)->name('demo');
+    Route::get('demo/events', Events::class)->defaults('demo', true)->name('demo.events');
+    Route::get('demo/timeline', SubjectTimeline::class)->defaults('demo', true)->name('demo.timeline');
+}
 
 Route::prefix('api')->name('api.')->group(function () {
     Route::get('events', [EventsController::class, 'index'])->name('events');

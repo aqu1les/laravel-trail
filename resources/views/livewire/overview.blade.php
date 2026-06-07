@@ -49,12 +49,14 @@
                 <span class="ds-label">{{ $m['sub'] ?? 'vs 7d ant.' }}</span>
               </div>
             </div>
-            <div class="shrink-0">
-              <svg width="88" height="32" viewBox="0 0 88 32" preserveAspectRatio="none" style="overflow:visible">
-                <polygon points="{{ $m['sparkPts']['area'] }}" fill="{{ $color }}" opacity="0.12"/>
-                <polyline points="{{ $m['sparkPts']['line'] }}" fill="none" stroke="{{ $color }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-              </svg>
-            </div>
+            @if (! empty($m['sparkPts']))
+              <div class="shrink-0">
+                <svg width="88" height="32" viewBox="0 0 88 32" preserveAspectRatio="none" style="overflow:visible">
+                  <polygon points="{{ $m['sparkPts']['area'] }}" fill="{{ $color }}" opacity="0.12"/>
+                  <polyline points="{{ $m['sparkPts']['line'] }}" fill="none" stroke="{{ $color }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                </svg>
+              </div>
+            @endif
           </div>
         </div>
       @endforeach
@@ -76,8 +78,7 @@
       <div class="trail-card-pad">
         <div class="flex items-baseline gap-3 mb-4">
           <span class="text-[28px] font-bold tracking-tight trail-tnum leading-none">{{ $chart['total'] }}</span>
-          <span class="trail-delta trail-delta-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>12.4%</span>
-          <span class="ds-label">vs período anterior</span>
+          <span class="ds-label">eventos no período</span>
         </div>
         <svg width="100%" height="240" viewBox="0 0 820 240" preserveAspectRatio="none" style="display:block;overflow:visible">
           <defs><linearGradient id="trail-ag" x1="0" y1="0" x2="0" y2="1">
@@ -132,12 +133,14 @@
                 <div class="text-[13px] font-medium truncate">{{ $a['name'] }}</div>
                 <div class="ds-label truncate">{{ $a['meta'] }}</div>
               </div>
-              <div class="shrink-0">
-                <svg width="88" height="32" viewBox="0 0 88 32" preserveAspectRatio="none" style="overflow:visible">
-                  <polygon points="{{ $a['sparkPts']['area'] }}" fill="var(--trail-text-faint)" opacity="0.12"/>
-                  <polyline points="{{ $a['sparkPts']['line'] }}" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
-                </svg>
-              </div>
+              @if (! empty($a['sparkPts']))
+                <div class="shrink-0">
+                  <svg width="88" height="32" viewBox="0 0 88 32" preserveAspectRatio="none" style="overflow:visible">
+                    <polygon points="{{ $a['sparkPts']['area'] }}" fill="var(--trail-text-faint)" opacity="0.12"/>
+                    <polyline points="{{ $a['sparkPts']['line'] }}" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                  </svg>
+                </div>
+              @endif
               <div class="text-[13px] font-semibold trail-tnum shrink-0 w-12 text-right">{{ $a['count'] }}</div>
             </div>
           @endforeach

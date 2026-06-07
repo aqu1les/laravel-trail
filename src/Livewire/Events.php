@@ -6,9 +6,16 @@ namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Trail\Trail\Livewire\Concerns\ResolvesEvents;
+use Trail\Trail\Models\TrailEvent;
 
 class Events extends Component
 {
+    use ResolvesEvents;
+
+    /** When true the screen renders sample data instead of querying. */
+    public bool $demo = false;
+
     public string $search = '';
 
     /** @var list<string> */
@@ -22,30 +29,37 @@ class Events extends Component
 
     public ?int $selectedId = null;
 
-    /** @var list<array<string,mixed>> */
+    /** @var list<array<string,mixed>> Demo stream buffer (demo mode only). */
     public array $events = [];
 
     public int $seq = 0;
 
     public ?int $newId = null;
 
-    public function mount(): void
+    public function mount(bool $demo = false): void
     {
-        $this->events = Sample::stream(50);
-        $this->seq = count($this->events);
+        $this->demo = $demo;
+
+        if ($this->demo) {
+            $this->events = Sample::stream(50);
+            $this->seq = count($this->events);
+        }
     }
 
-    /** Live stream tick — prepend a fresh event (wire:poll target). */
+    /** Live stream tick (wire:poll target). */
     public function tick(): void
     {
         if (! $this->live) {
             return;
         }
 
-        $event = Sample::makeEvent((int) (microtime(true) * 1000), ++$this->seq);
-        array_unshift($this->events, $event);
-        $this->events = array_slice($this->events, 0, 200);
-        $this->newId = $event['id'];
+        // Demo: synthesise an event. Real: the re-render re-queries the table.
+        if ($this->demo) {
+            $event = Sample::makeEvent((int) (microtime(true) * 1000), ++$this->seq);
+            array_unshift($this->events, $event);
+            $this->events = array_slice($this->events, 0, 200);
+            $this->newId = $event['id'];
+        }
     }
 
     public function toggleLive(): void
@@ -82,11 +96,29 @@ class Events extends Component
         $this->dispatch('drawer-open');
     }
 
+    /** The event set backing this render — demo buffer or a real query. */
+    private function sourceEvents(): array
+    {
+        if ($this->demo) {
+            return $this->events;
+        }
+
+        return TrailEvent::query()
+            ->with('subject')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get()
+            ->map(fn (TrailEvent $event) => $this->normalizeEvent($event))
+            ->all();
+    }
+
     public function render(): View
     {
         $cats = Sample::categories();
+        $all = $this->sourceEvents();
 
-        $visible = array_values(array_filter($this->events, function (array $e): bool {
+        $visible = array_values(array_filter($all, function (array $e): bool {
             if ($this->eventFilter !== [] && ! in_array($e['name'], $this->eventFilter, true)) {
                 return false;
             }
@@ -103,19 +135,22 @@ class Events extends Component
             return true;
         }));
 
-        $names = collect($this->events)->pluck('name')->unique()->sort()->values()->all();
+        $names = collect($all)->pluck('name')->unique()->sort()->values()->all();
+
+        $actors = collect($all)->pluck('actor')->unique('id')->values()
+            ->reject(fn ($a) => $a['id'] === '—')->values()->all();
 
         $selected = $this->selectedId !== null
-            ? collect($this->events)->firstWhere('id', $this->selectedId)
+            ? collect($all)->firstWhere('id', $this->selectedId)
             : null;
 
         return view('trail::livewire.events', [
             'cats' => $cats,
             'visible' => $visible,
             'names' => $names,
-            'actors' => Sample::actors(),
+            'actors' => $actors,
             'selected' => $selected,
             'hasFilters' => $this->search !== '' || $this->eventFilter !== [] || $this->actorFilter !== null,
-        ])->layout('trail::layout', ['active' => 'events', 'title' => 'Events']);
+        ])->layout('trail::layout', ['active' => ($this->demo ? 'demo-' : '').'events', 'title' => 'Events']);
     }
 }

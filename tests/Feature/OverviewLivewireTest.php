@@ -9,12 +9,12 @@ use Trail\Trail\Trail;
 beforeEach(fn () => Trail::auth(fn () => true));
 afterEach(fn () => Trail::auth(null));
 
-it('switches the chart granularity', function () {
-    Livewire::test(Overview::class)
+it('switches the chart granularity in demo mode', function () {
+    Livewire::test(Overview::class, ['demo' => true])
         ->assertSet('granularity', 'Dia')
-        ->assertSee('1.24M')          // Dia total
+        ->assertSee('1.24M')
         ->set('granularity', 'Hora')
-        ->assertSee('142k');          // Hora total
+        ->assertSee('142k');
 });
 
 it('builds sparkline geometry', function () {

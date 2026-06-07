@@ -36,6 +36,19 @@
     <a class="trail-nav-item {{ $active === 'design-system' ? 'is-active' : '' }}" href="{{ route('trail.design-system') }}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="16.5" cy="14" r="2.5"/><path d="M11 8.5 8.5 10.5M14.5 12.5 11 13"/></svg>Design System
     </a>
+
+    @if (app()->environment('local'))
+      <div class="trail-eyebrow px-2 pt-4 pb-1.5">Demo · dev</div>
+      <a class="trail-nav-item {{ $active === 'demo-overview' ? 'is-active' : '' }}" href="{{ route('trail.demo') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.9 4.7L19 8l-3.5 3.4.8 4.9L12 14l-4.3 2.3.8-4.9L5 8l5.1-.3z"/></svg>Overview
+      </a>
+      <a class="trail-nav-item {{ $active === 'demo-events' ? 'is-active' : '' }}" href="{{ route('trail.demo.events') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Events
+      </a>
+      <a class="trail-nav-item {{ $active === 'demo-timeline' ? 'is-active' : '' }}" href="{{ route('trail.demo.timeline') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Timeline
+      </a>
+    @endif
   </nav>
 
   <div class="px-3 py-3 border-t space-y-1" style="border-color: var(--trail-border);">

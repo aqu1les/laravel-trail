@@ -6,9 +6,16 @@ namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Trail\Trail\Livewire\Concerns\ResolvesEvents;
+use Trail\Trail\Models\TrailEvent;
 
 class SubjectTimeline extends Component
 {
+    use ResolvesEvents;
+
+    public bool $demo = false;
+
+    /** Selection token: a Sample actor id (demo) or "subject_type|subject_id" (real). */
     public string $actorId = '';
 
     public string $actorSearch = '';
@@ -16,13 +23,21 @@ class SubjectTimeline extends Component
     /** @var list<string> */
     public array $activeTypes = [];
 
-    /** @var list<array<string,mixed>> Stable history for the current actor. */
+    /** @var list<array<string,mixed>> Demo history buffer (demo mode only). */
     public array $events = [];
 
-    public function mount(): void
+    public function mount(bool $demo = false): void
     {
-        $this->actorId = Sample::actors()[0]['id'];
-        $this->events = Sample::actorHistory($this->currentActor());
+        $this->demo = $demo;
+
+        if ($this->demo) {
+            $this->actorId = Sample::actors()[0]['id'];
+            $this->events = Sample::actorHistory($this->demoActor());
+
+            return;
+        }
+
+        $this->actorId = $this->realActors()[0]['key'] ?? '';
     }
 
     public function selectActor(string $id): void
@@ -30,7 +45,10 @@ class SubjectTimeline extends Component
         $this->actorId = $id;
         $this->activeTypes = [];
         $this->actorSearch = '';
-        $this->events = Sample::actorHistory($this->currentActor());
+
+        if ($this->demo) {
+            $this->events = Sample::actorHistory($this->demoActor());
+        }
     }
 
     public function toggleType(string $name): void
@@ -42,21 +60,70 @@ class SubjectTimeline extends Component
         }
     }
 
-    private function currentActor(): array
+    private function demoActor(): array
     {
-        return collect(Sample::actors())->firstWhere('id', $this->actorId) ?? Sample::actors()[0];
+        $actor = collect(Sample::actors())->firstWhere('id', $this->actorId) ?? Sample::actors()[0];
+
+        return $actor + ['key' => $actor['id']];
+    }
+
+    /** Distinct real subjects with resolved identity, most active first. */
+    private function realActors(): array
+    {
+        return TrailEvent::query()
+            ->selectRaw('subject_type, subject_id, count(*) as aggregate')
+            ->whereNotNull('subject_id')
+            ->groupBy('subject_type', 'subject_id')
+            ->orderByDesc('aggregate')->limit(50)->get()
+            ->map(function ($row): array {
+                $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
+                [$name, $email] = $this->resolveIdentity($row->subject_type, $row->subject_id);
+
+                return [
+                    'key' => $row->subject_type.'|'.$row->subject_id,
+                    'name' => $name ?? "{$type} #{$row->subject_id}",
+                    'type' => $type,
+                    'id' => (string) $row->subject_id,
+                    'email' => $email,
+                ];
+            })->all();
+    }
+
+    private function resolveIdentity(?string $type, mixed $id): array
+    {
+        if ($type === null || ! class_exists($type)) {
+            return [null, null];
+        }
+        $model = $type::query()->find($id);
+
+        return [$model?->name ?? null, $model?->email ?? null];
     }
 
     public function render(): View
     {
         $cats = Sample::categories();
-        $actor = $this->currentActor();
+
+        if ($this->demo) {
+            $actor = $this->demoActor();
+            $events = $this->events;
+            $results = array_map(fn ($a) => $a + ['key' => $a['id']], Sample::actors());
+        } else {
+            $actors = $this->realActors();
+            $actor = collect($actors)->firstWhere('key', $this->actorId)
+                ?? ['key' => '', 'name' => '—', 'type' => '—', 'id' => '—', 'email' => null];
+            $events = $this->realEventsFor($actor['key']);
+            $results = $this->actorSearch !== ''
+                ? array_values(array_filter($actors, fn ($a) => str_contains(
+                    mb_strtolower($a['name'].' '.$a['id'].' '.($a['email'] ?? '')),
+                    mb_strtolower($this->actorSearch)
+                )))
+                : $actors;
+        }
 
         $filtered = $this->activeTypes !== []
-            ? array_values(array_filter($this->events, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
-            : $this->events;
+            ? array_values(array_filter($events, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
+            : $events;
 
-        // Group consecutive events by day label (events are descending by time).
         $groups = [];
         foreach ($filtered as $e) {
             $label = Sample::dayLabel($e['ts']);
@@ -69,20 +136,18 @@ class SubjectTimeline extends Component
             ];
         }
 
-        // Distinct event types present in this actor's history.
-        $types = collect($this->events)->pluck('name')->unique()->sort()->values()
+        $types = collect($events)->pluck('name')->unique()->sort()->values()
             ->map(fn ($name) => [
                 'name' => $name,
-                'cat' => collect($this->events)->firstWhere('name', $name)['cat'],
+                'cat' => collect($events)->firstWhere('name', $name)['cat'],
                 'on' => in_array($name, $this->activeTypes, true),
             ])->all();
 
-        // Profile stats.
-        $ts = array_column($this->events, 'ts');
-        $counts = array_count_values(array_column($this->events, 'name'));
+        $ts = array_column($events, 'ts');
+        $counts = array_count_values(array_column($events, 'name'));
         arsort($counts);
         $byDay = [];
-        foreach ($this->events as $e) {
+        foreach ($events as $e) {
             $k = (int) (strtotime(date('Y-m-d', (int) ($e['ts'] / 1000))) * 1000);
             $byDay[$k] = ($byDay[$k] ?? 0) + 1;
         }
@@ -92,13 +157,6 @@ class SubjectTimeline extends Component
             $bars[] = $byDay[$today - $i * 86400000] ?? 0;
         }
 
-        $results = $this->actorSearch !== ''
-            ? array_values(array_filter(Sample::actors(), fn ($a) => str_contains(
-                mb_strtolower($a['name'].' '.$a['id'].' '.$a['email']),
-                mb_strtolower($this->actorSearch)
-            )))
-            : Sample::actors();
-
         return view('trail::livewire.subject-timeline', [
             'cats' => $cats,
             'actor' => $actor,
@@ -106,7 +164,7 @@ class SubjectTimeline extends Component
             'types' => $types,
             'empty' => $filtered === [],
             'stats' => [
-                'total' => count($this->events),
+                'total' => count($events),
                 'sessions' => $counts['session.started'] ?? 0,
                 'first' => $ts === [] ? '—' : Sample::fullDate(min($ts)),
                 'last' => $ts === [] ? '—' : Sample::relative(max($ts)),
@@ -115,6 +173,21 @@ class SubjectTimeline extends Component
                 'max_bar' => max(1, ...$bars),
             ],
             'results' => $results,
-        ])->layout('trail::layout', ['active' => 'timeline', 'title' => 'Subject Timeline']);
+        ])->layout('trail::layout', ['active' => ($this->demo ? 'demo-' : '').'timeline', 'title' => 'Subject Timeline']);
+    }
+
+    private function realEventsFor(string $key): array
+    {
+        if ($key === '') {
+            return [];
+        }
+        [$type, $id] = explode('|', $key, 2);
+
+        return TrailEvent::query()
+            ->with('subject')
+            ->where('subject_type', $type)
+            ->where('subject_id', $id)
+            ->orderByDesc('occurred_at')->orderByDesc('id')->limit(300)->get()
+            ->map(fn (TrailEvent $e) => $this->normalizeEvent($e))->all();
     }
 }
