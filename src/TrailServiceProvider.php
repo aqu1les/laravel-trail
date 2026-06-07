@@ -136,6 +136,12 @@ class TrailServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../dist' => public_path('vendor/trail'),
         ], 'trail-assets');
+
+        // Agent skill: drops a Trail usage guide into the consumer's repo so AI
+        // assistants know how to use the package.
+        $this->publishes([
+            __DIR__.'/../resources/skills/trail/SKILL.md' => base_path('.claude/skills/trail/SKILL.md'),
+        ], 'trail-skill');
     }
 
     /**

@@ -23,6 +23,9 @@ class InstallCommand extends Command
         $this->comment('Publishing Trail assets...');
         $this->callSilently('vendor:publish', ['--tag' => 'trail-assets', '--force' => true]);
 
+        $this->comment('Publishing Trail agent skill...');
+        $this->callSilently('vendor:publish', ['--tag' => 'trail-skill']);
+
         $this->info('Trail installed. Run `php artisan migrate` and protect the dashboard with Trail::auth().');
 
         return self::SUCCESS;
