@@ -47,7 +47,7 @@ class MetricsController
             'total_events' => (clone $base)->count(),
             'unique_subjects' => DB::table(
                 (clone $base)->whereNotNull('subject_id')->whereNotNull('subject_type')
-                    ->select('subject_type', 'subject_id')->distinct(),
+                    ->select('subject_type', 'subject_id')->distinct()->toBase(),
                 'unique_actors'
             )->count(),
             'top_events' => $topEvents,

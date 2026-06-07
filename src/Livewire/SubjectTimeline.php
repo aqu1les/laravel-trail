@@ -142,7 +142,7 @@ class SubjectTimeline extends Component
             ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter))
             ->groupBy('subject_type', 'subject_id')
             ->orderByDesc('total')
-            ->get();
+            ->toBase()->get();
 
         $identities = $this->resolveIdentities(
             $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()

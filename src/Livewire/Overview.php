@@ -69,7 +69,7 @@ class Overview extends Component
                 ->whereNotNull('subject_id')
                 ->whereNotNull('subject_type')
                 ->select('subject_type', 'subject_id')
-                ->distinct(),
+                ->distinct()->toBase(),
             'unique_actors'
         )->count();
         $todayEvents = Trail::events()->today();
