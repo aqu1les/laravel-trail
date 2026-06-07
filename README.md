@@ -6,7 +6,7 @@
 
 [![Packagist Version](https://img.shields.io/packagist/v/aqu1les/laravel-trail.svg?style=flat-square)](https://packagist.org/packages/aqu1les/laravel-trail)
 ![PHP](https://img.shields.io/badge/php-8.3%2B-777bb4?style=flat-square)
-![Laravel](https://img.shields.io/badge/laravel-11%20%7C%2012-ff2d20?style=flat-square)
+![Laravel](https://img.shields.io/badge/laravel-11%20%7C%2012%20%7C%2013-ff2d20?style=flat-square)
 [![License](https://img.shields.io/packagist/l/aqu1les/laravel-trail.svg?style=flat-square)](LICENSE.md)
 
 </div>
@@ -36,7 +36,7 @@ Most analytics tools answer "how many" really well and "who, exactly, and what d
 ## Requirements
 
 - PHP 8.3+
-- Laravel 11 or 12
+- Laravel 11, 12 or 13
 
 ## Installation
 
