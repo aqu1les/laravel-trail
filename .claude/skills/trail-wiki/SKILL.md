@@ -8,11 +8,11 @@ description: Use when updating, editing, or adding pages to the laravel-trail Gi
 The Trail wiki is the user-facing docs for people who install `aqu1les/laravel-trail` via Composer. Audience: **library consumers**, not contributors. Document usage, not internal architecture.
 
 - **Public URL:** https://github.com/aqu1les/laravel-trail/wiki
-- **Wiki git remote:** `git@github.com:aqu1les/laravel-trail.wiki.git` (a *separate* repo from the code)
-- **Local clone (source of truth):** `/home/aqu1les/laravel-trail.wiki/` — branch `master`
-- **Original drafts (may be stale, ignore for edits):** `/home/aqu1les/laravel-trail-wiki/`
+- **Wiki git remote:** `git@github.com:aqu1les/laravel-trail.wiki.git` — branch `master`
+- **Local path (source of truth):** `/home/aqu1les/laravel-trail/wiki/` — a git submodule inside the main repo
+- **Stale drafts (ignore):** `/home/aqu1les/laravel-trail-wiki/` and `/home/aqu1les/laravel-trail.wiki/`
 
-The wiki repo only exists after the Home page is created once in the GitHub UI (Settings → Features → ✅ Wikis). That's already done.
+The wiki is a submodule. Always work from `wiki/` inside the main repo, never from the old standalone clones.
 
 ## The golden rule: shipped vs. Coming soon
 
@@ -44,15 +44,20 @@ Pages that currently carry "Coming soon" markers to revisit as things land:
 ## Update workflow
 
 ```bash
-cd /home/aqu1les/laravel-trail.wiki
-git pull origin master            # someone may have edited on github.com
+cd /home/aqu1les/laravel-trail/wiki
+git pull origin master       # someone may have edited on github.com
 # edit the .md files
 git add -A
 git commit -m "Document <thing>"
-git push origin master            # live on the wiki immediately — confirm with user first
+git push origin master       # live on the wiki immediately — confirm with user first
+
+# then update the submodule pointer in the main repo
+cd ..
+git add wiki
+git commit -m "chore: update wiki"
 ```
 
-Changes are public the instant you push. **Get the user's OK before pushing.**
+Changes are public the instant you push the submodule. **Get the user's OK before pushing.**
 
 ## Page conventions
 
@@ -74,5 +79,6 @@ Changes are public the instant you push. **Get the user's OK before pushing.**
 
 - Documenting a working-tree feature that isn't committed yet → it's not shipped. Check `git log`, not just the files.
 - Adding a page but forgetting `_Sidebar.md` → orphaned page.
-- Editing the stale drafts in `/home/aqu1les/laravel-trail-wiki/` instead of the clone → changes never reach GitHub.
+- Editing the stale clones at `/home/aqu1les/laravel-trail.wiki/` or `/home/aqu1les/laravel-trail-wiki/` → changes never reach GitHub. Always use `wiki/` inside the main repo.
+- Forgetting to commit the submodule pointer in the main repo after pushing the wiki.
 - Pushing before the user reviews → the wiki is public; confirm first.
