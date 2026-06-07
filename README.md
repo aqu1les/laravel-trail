@@ -158,6 +158,14 @@ Trail::sync()->track('payment.captured');
 
 A naming convention pays off fast: `domain.action` (`order.placed`, `onboarding.step_completed`). It keeps your event list readable and your funnels easy to build.
 
+### Automatic context
+
+Trail fills the `context` field automatically - no extra code needed.
+
+During a routed **HTTP request** it captures `url`, `method`, and `referrer`, plus IP and user agent according to your `privacy` config.
+
+In **Artisan commands and queue workers** it captures process-level attributes: `hostname`, `pid`, and `command` by default. `command_arguments` and `server_ip` are opt-in via `trail.console` (they can contain sensitive values). Your `withContext()` calls merge on top and win on conflicts.
+
 ## The actor is polymorphic
 
 The `HasTrail` trait gives any model two things:
@@ -301,13 +309,14 @@ A few of the knobs in `config/trail.php`:
     'capture_server_ip'         => false, // opt-in
 ],
 
+// Swap context capture entirely - must implement ContextCaptureContract.
+// Extend Trail\Trail\Support\ContextCapture to override only what you need.
+'context_capture' => null,
+
 'retention' => [
     'events_days'     => env('TRAIL_RETENTION_DAYS', 90),
     'aggregates_days' => 730,
 ],
-
-// Set to a class name implementing ContextCaptureContract to swap context capture entirely.
-'context_capture' => null,
 ```
 
 Because the config is published into your app, you override values by editing the file - no environment variables required for things like the subject model.
@@ -337,7 +346,7 @@ Shipped:
 - ✅ Polymorphic actor + `HasTrail` trait, configurable resolver
 - ✅ Fluent read helpers - `Trail::events()`, `Trail::count()`, `Trail::funnel()`
 - ✅ Pre-computed aggregates + `trail:aggregate`, `trail:prune`, `trail:install` commands
-- ✅ Privacy-aware context capture + opt-in page-view tracking
+- ✅ Automatic context capture (HTTP + console/queue) with extensible `ContextCaptureContract` + opt-in page-view tracking
 - ✅ Auto-registered routes, JSON API, dashboard auth gate
 - ✅ Embedded Blade + Livewire dashboard - Overview, Events, Subject Timeline, design-system showcase, token theming
 
