@@ -1,0 +1,114 @@
+/* =============================================================
+   Trail · Color tokens
+   -------------------------------------------------------------
+   The --trail-* custom properties are the ENTIRE customization
+   surface. Override any of them in your own stylesheet (loaded
+   after trail's styles.css) to retheme the dashboard. Nothing
+   downstream hardcodes a hex value — components and the Tailwind
+   @theme both read these variables.
+
+   Neutral ramp = zinc. Accent = rose (Laravel-aligned red).
+   Default theme is dark; .dark is applied to <html>.
+   ============================================================= */
+
+:root {
+  /* ---- Neutral surfaces (light theme) ---- */
+  --trail-bg:           #f4f4f5;  /* app background        */
+  --trail-surface:      #ffffff;  /* cards, panels         */
+  --trail-surface-2:    #fafafa;  /* hover / nested fills  */
+  --trail-surface-3:    #f4f4f5;  /* pressed / track       */
+  --trail-overlay:      rgba(9, 9, 11, .45);
+
+  /* ---- Borders ---- */
+  --trail-border:        #e4e4e7;
+  --trail-border-strong: #d4d4d8;
+
+  /* ---- Text ---- */
+  --trail-text:        #18181b;  /* primary               */
+  --trail-text-muted:  #52525b;  /* secondary             */
+  --trail-text-subtle: #71717a;  /* labels, meta          */
+  --trail-text-faint:  #a1a1aa;  /* disabled, watermarks  */
+
+  /* ---- Accent (rose) ---- */
+  --trail-accent:         #f43f5e;
+  --trail-accent-hover:   #e11d48;
+  --trail-accent-active:  #be123c;
+  --trail-accent-fg:      #ffffff;  /* text/icon on accent */
+  --trail-accent-subtle:  rgba(244, 63, 94, .10);
+  --trail-accent-border:  rgba(244, 63, 94, .28);
+
+  /* ---- Semantic ---- */
+  --trail-success:        #059669;
+  --trail-success-subtle: rgba(5, 150, 105, .12);
+  --trail-danger:         #dc2626;
+  --trail-danger-subtle:  rgba(220, 38, 38, .12);
+  --trail-warning:        #d97706;
+  --trail-warning-subtle: rgba(217, 119, 6, .12);
+  --trail-info:           #2563eb;
+  --trail-info-subtle:    rgba(37, 99, 235, .12);
+
+  /* ---- Direction (metric deltas) ---- */
+  --trail-up:   var(--trail-success);
+  --trail-down: var(--trail-danger);
+
+  /* ---- Focus ring ---- */
+  --trail-ring: rgba(244, 63, 94, .45);
+
+  /* ---- Data-viz palette (categorical) ---- */
+  --trail-chart-1: var(--trail-accent);
+  --trail-chart-2: #0ea5e9;
+  --trail-chart-3: #8b5cf6;
+  --trail-chart-4: #10b981;
+  --trail-chart-5: #f59e0b;
+  --trail-chart-6: #ec4899;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* ---- Neutral surfaces (dark theme) ---- */
+  --trail-bg:           #09090b;
+  --trail-surface:      #131316;
+  --trail-surface-2:    #1c1c20;
+  --trail-surface-3:    #27272a;
+  --trail-overlay:      rgba(0, 0, 0, .60);
+
+  /* ---- Borders ---- */
+  --trail-border:        #26262b;
+  --trail-border-strong: #3f3f46;
+
+  /* ---- Text ---- */
+  --trail-text:        #fafafa;
+  --trail-text-muted:  #a1a1aa;
+  --trail-text-subtle: #71717a;
+  --trail-text-faint:  #52525b;
+
+  /* ---- Accent (rose) ---- */
+  --trail-accent:         #f43f5e;
+  --trail-accent-hover:   #fb7185;
+  --trail-accent-active:  #e11d48;
+  --trail-accent-fg:      #ffffff;
+  --trail-accent-subtle:  rgba(244, 63, 94, .14);
+  --trail-accent-border:  rgba(244, 63, 94, .32);
+
+  /* ---- Semantic ---- */
+  --trail-success:        #34d399;
+  --trail-success-subtle: rgba(52, 211, 153, .14);
+  --trail-danger:         #f87171;
+  --trail-danger-subtle:  rgba(248, 113, 113, .14);
+  --trail-warning:        #fbbf24;
+  --trail-warning-subtle: rgba(251, 191, 36, .14);
+  --trail-info:           #60a5fa;
+  --trail-info-subtle:    rgba(96, 165, 250, .14);
+
+  --trail-ring: rgba(244, 63, 94, .55);
+
+  --trail-chart-1: #fb7185;
+  --trail-chart-2: #38bdf8;
+  --trail-chart-3: #a78bfa;
+  --trail-chart-4: #34d399;
+  --trail-chart-5: #fbbf24;
+  --trail-chart-6: #f472b6;
+
+  color-scheme: dark;
+}

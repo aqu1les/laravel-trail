@@ -1,0 +1,63 @@
+/* =============================================================
+   Trail · Foundations — radius, spacing, elevation, motion
+   -------------------------------------------------------------
+   Form character: rounded (12px on cards). Density: compact but
+   breathable. Elevation in dark mode leans on borders, not heavy
+   shadows.
+   ============================================================= */
+
+:root {
+  /* ---- Radius ---- */
+  --trail-radius-sm:  6px;
+  --trail-radius-md:  8px;
+  --trail-radius-lg:  12px;   /* cards, panels, drawer    */
+  --trail-radius-xl:  16px;
+  --trail-radius-full: 9999px;
+
+  /* ---- Spacing scale (4px base) ---- */
+  --trail-space-1:  4px;
+  --trail-space-2:  8px;
+  --trail-space-3:  12px;
+  --trail-space-4:  16px;
+  --trail-space-5:  20px;
+  --trail-space-6:  24px;
+  --trail-space-8:  32px;
+  --trail-space-10: 40px;
+  --trail-space-12: 48px;
+
+  /* ---- Control sizing (density) ---- */
+  --trail-control-h:    34px;  /* default inputs / buttons */
+  --trail-control-h-sm: 28px;  /* compact / inline         */
+  --trail-control-h-lg: 40px;  /* primary / search         */
+  --trail-row-h:        40px;  /* dense table row          */
+  --trail-sidebar-w:    232px;
+  --trail-header-h:     56px;
+
+  /* ---- Elevation ---- */
+  --trail-shadow-xs: 0 1px 2px rgba(9, 9, 11, .06);
+  --trail-shadow-sm: 0 1px 3px rgba(9, 9, 11, .08), 0 1px 2px rgba(9, 9, 11, .04);
+  --trail-shadow-md: 0 4px 12px rgba(9, 9, 11, .10), 0 2px 4px rgba(9, 9, 11, .06);
+  --trail-shadow-lg: 0 12px 32px rgba(9, 9, 11, .16), 0 4px 8px rgba(9, 9, 11, .08);
+
+  /* ---- Motion ---- */
+  --trail-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --trail-ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --trail-dur-fast:    120ms;
+  --trail-dur:         180ms;
+  --trail-dur-slow:    280ms;
+}
+
+.dark {
+  --trail-shadow-xs: 0 1px 2px rgba(0, 0, 0, .4);
+  --trail-shadow-sm: 0 1px 3px rgba(0, 0, 0, .5);
+  --trail-shadow-md: 0 4px 14px rgba(0, 0, 0, .55);
+  --trail-shadow-lg: 0 16px 40px rgba(0, 0, 0, .6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --trail-dur-fast: 0ms;
+    --trail-dur: 0ms;
+    --trail-dur-slow: 0ms;
+  }
+}

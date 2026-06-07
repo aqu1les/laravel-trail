@@ -71,6 +71,13 @@ class TrailServiceProvider extends ServiceProvider
             __DIR__.'/../config/trail.php' => config_path('trail.php'),
         ], 'trail-config');
 
+        // Design-system source (tokens + components). Consumers running a
+        // Tailwind v4 build `@import "trail/styles.css"` from here and may
+        // override any --trail-* token afterwards to retheme the dashboard.
+        $this->publishes([
+            __DIR__.'/../resources/css/trail' => resource_path('css/trail'),
+        ], 'trail-styles');
+
         $this->publishesMigrations([
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'trail-migrations');

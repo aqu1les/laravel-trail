@@ -1,0 +1,62 @@
+/* =============================================================
+   Trail · Tailwind v4 theme bridge
+   -------------------------------------------------------------
+   Maps Trail's semantic tokens onto Tailwind v4's @theme so you
+   get utilities like `bg-surface`, `text-muted`, `border-border`,
+   `text-accent`, `rounded-lg`, `font-mono`, etc.
+
+   In a real Tailwind v4 build, import order is:
+       @import "tailwindcss";
+       @import "trail/styles.css";   (this brings tokens + theme)
+
+   Browsers ignore the @theme at-rule when this file is loaded as
+   a plain stylesheet, so it is safe in the @import chain.
+   ============================================================= */
+
+@theme {
+  /* Colors → semantic utilities */
+  --color-bg:            var(--trail-bg);
+  --color-surface:       var(--trail-surface);
+  --color-surface-2:     var(--trail-surface-2);
+  --color-surface-3:     var(--trail-surface-3);
+  --color-border:        var(--trail-border);
+  --color-border-strong: var(--trail-border-strong);
+
+  --color-content:        var(--trail-text);
+  --color-muted:          var(--trail-text-muted);
+  --color-subtle:         var(--trail-text-subtle);
+  --color-faint:          var(--trail-text-faint);
+
+  --color-accent:         var(--trail-accent);
+  --color-accent-hover:   var(--trail-accent-hover);
+  --color-accent-fg:      var(--trail-accent-fg);
+  --color-accent-subtle:  var(--trail-accent-subtle);
+
+  --color-success: var(--trail-success);
+  --color-danger:  var(--trail-danger);
+  --color-warning: var(--trail-warning);
+  --color-info:    var(--trail-info);
+
+  --color-chart-1: var(--trail-chart-1);
+  --color-chart-2: var(--trail-chart-2);
+  --color-chart-3: var(--trail-chart-3);
+  --color-chart-4: var(--trail-chart-4);
+  --color-chart-5: var(--trail-chart-5);
+  --color-chart-6: var(--trail-chart-6);
+
+  /* Type */
+  --font-sans: var(--trail-font-sans);
+  --font-mono: var(--trail-font-mono);
+
+  /* Radius */
+  --radius-sm:  var(--trail-radius-sm);
+  --radius-md:  var(--trail-radius-md);
+  --radius-lg:  var(--trail-radius-lg);
+  --radius-xl:  var(--trail-radius-xl);
+
+  /* Shadows */
+  --shadow-xs: var(--trail-shadow-xs);
+  --shadow-sm: var(--trail-shadow-sm);
+  --shadow-md: var(--trail-shadow-md);
+  --shadow-lg: var(--trail-shadow-lg);
+}

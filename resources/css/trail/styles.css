@@ -1,0 +1,23 @@
+/* =============================================================
+   Trail Design System · entry point
+   -------------------------------------------------------------
+   This is the single file consumers link. It only @imports —
+   no rules live here directly. Everything reachable from here
+   ships to consumers.
+
+   Usage (Tailwind v4 build):
+       @import "tailwindcss";
+       @import "trail/styles.css";
+
+   Usage (no build / Blade):
+       <link rel="stylesheet" href="trail/styles.css">
+
+   Customize: override any --trail-* variable AFTER this import,
+   or set data-trail-theme="ocean|forest|violet|amber" on <html>.
+   ============================================================= */
+
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/foundations.css";
+@import "./tokens/theme.css";
+@import "./components.css";
