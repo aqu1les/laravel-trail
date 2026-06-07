@@ -36,3 +36,16 @@ it('resolves a polymorphic subject', function () {
     expect($event->subject)->toBeInstanceOf(User::class)
         ->and($event->subject->is($user))->toBeTrue();
 });
+
+it('persists an event whose property value is an array', function () {
+    $event = TrailEvent::create([
+        'name' => 'onboarding.completed',
+        'properties' => ['completed' => ['ai-agent', 'bot_connected', 'contacts', 'attendance']],
+        'occurred_at' => now(),
+    ]);
+
+    expect($event->properties)->toBe(['completed' => ['ai-agent', 'bot_connected', 'contacts', 'attendance']]);
+
+    $fresh = TrailEvent::find($event->id);
+    expect($fresh->properties)->toBe(['completed' => ['ai-agent', 'bot_connected', 'contacts', 'attendance']]);
+});
