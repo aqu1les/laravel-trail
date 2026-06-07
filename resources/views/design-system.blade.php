@@ -7,39 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="{{ route('trail.styles') }}">
-<script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-@verbatim
-<style type="text/tailwindcss">
-  @import "tailwindcss";
-  @custom-variant dark (&:where(.dark, .dark *));
-  @theme {
-    --color-bg: var(--trail-bg);
-    --color-surface: var(--trail-surface);
-    --color-surface-2: var(--trail-surface-2);
-    --color-surface-3: var(--trail-surface-3);
-    --color-border: var(--trail-border);
-    --color-border-strong: var(--trail-border-strong);
-    --color-content: var(--trail-text);
-    --color-muted: var(--trail-text-muted);
-    --color-subtle: var(--trail-text-subtle);
-    --color-faint: var(--trail-text-faint);
-    --color-accent: var(--trail-accent);
-    --color-accent-fg: var(--trail-accent-fg);
-    --color-accent-subtle: var(--trail-accent-subtle);
-    --color-success: var(--trail-success);
-    --color-danger: var(--trail-danger);
-    --color-warning: var(--trail-warning);
-    --color-info: var(--trail-info);
-    --font-sans: var(--trail-font-sans);
-    --font-mono: var(--trail-font-mono);
-    --radius-md: var(--trail-radius-md);
-    --radius-lg: var(--trail-radius-lg);
-    --radius-xl: var(--trail-radius-xl);
-  }
-  html, body { height: 100%; }
-</style>
-@endverbatim
+{!! \Trail\Trail\Facades\Trail::styles() !!}
 <style>
   .ds-section + .ds-section { margin-top: 56px; }
   .ds-label { font-size: 11px; color: var(--trail-text-faint); font-family: var(--trail-font-mono); }

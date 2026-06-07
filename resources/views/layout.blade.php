@@ -10,39 +10,7 @@
 @if ($trailStylesheet = config('trail.stylesheet'))
 <link rel="stylesheet" href="{{ $trailStylesheet }}">
 @else
-{{-- Dev fallback: component CSS via the route + Tailwind compiled in-browser (CDN).
-     Not for production - build Trail into your Tailwind bundle and set
-     config('trail.stylesheet'). See the Theming docs. --}}
-<link rel="stylesheet" href="{{ route('trail.styles') }}">
-<script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-@verbatim
-<style type="text/tailwindcss">
-  @import "tailwindcss";
-  @custom-variant dark (&:where(.dark, .dark *));
-  @theme {
-    --color-bg: var(--trail-bg);
-    --color-surface: var(--trail-surface);
-    --color-surface-2: var(--trail-surface-2);
-    --color-surface-3: var(--trail-surface-3);
-    --color-border: var(--trail-border);
-    --color-border-strong: var(--trail-border-strong);
-    --color-content: var(--trail-text);
-    --color-muted: var(--trail-text-muted);
-    --color-subtle: var(--trail-text-subtle);
-    --color-faint: var(--trail-text-faint);
-    --color-accent: var(--trail-accent);
-    --color-accent-fg: var(--trail-accent-fg);
-    --color-accent-subtle: var(--trail-accent-subtle);
-    --color-success: var(--trail-success);
-    --color-danger: var(--trail-danger);
-    --font-sans: var(--trail-font-sans);
-    --font-mono: var(--trail-font-mono);
-    --radius-md: var(--trail-radius-md);
-    --radius-lg: var(--trail-radius-lg);
-  }
-  html, body { height: 100%; margin: 0; }
-</style>
-@endverbatim
+{!! \Trail\Trail\Facades\Trail::styles() !!}
 @endif
 <style>
   .ds-label { font-size: 11px; color: var(--trail-text-faint); font-family: var(--trail-font-mono); }

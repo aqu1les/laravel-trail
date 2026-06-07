@@ -114,6 +114,23 @@ class Trail
     }
 
     /**
+     * Return the compiled dashboard CSS as an inline <style> tag.
+     *
+     * Mirrors the Laravel Pulse pattern: dist/trail.css is pre-compiled
+     * and shipped with the package, so consumers need zero build config.
+     */
+    public static function styles(): string
+    {
+        $path = __DIR__.'/../dist/trail.css';
+
+        if (($css = @file_get_contents($path)) === false) {
+            throw new \RuntimeException("Trail: unable to load compiled CSS [{$path}].");
+        }
+
+        return '<style>'.$css.'</style>';
+    }
+
+    /**
      * Build a funnel conversion report for an ordered list of event names.
      *
      * @param  array<int, string>  $steps

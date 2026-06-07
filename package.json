@@ -1,0 +1,10 @@
+{
+    "private": true,
+    "scripts": {
+        "build": "bunx @tailwindcss/cli -i resources/css/trail/build.css -o dist/trail.css --minify",
+        "dev": "bunx @tailwindcss/cli -i resources/css/trail/build.css -o dist/trail.css --watch"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.0"
+    }
+}

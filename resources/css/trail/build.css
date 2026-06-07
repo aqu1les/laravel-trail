@@ -1,0 +1,39 @@
+/* =============================================================
+   Trail - package build entry point
+   Compiled to dist/trail.css via: npm run build
+   Consumers do not import this file directly.
+   ============================================================= */
+
+@import "tailwindcss";
+
+@source "../../views/**/*.blade.php";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg: var(--trail-bg);
+  --color-surface: var(--trail-surface);
+  --color-surface-2: var(--trail-surface-2);
+  --color-surface-3: var(--trail-surface-3);
+  --color-border: var(--trail-border);
+  --color-border-strong: var(--trail-border-strong);
+  --color-content: var(--trail-text);
+  --color-muted: var(--trail-text-muted);
+  --color-subtle: var(--trail-text-subtle);
+  --color-faint: var(--trail-text-faint);
+  --color-accent: var(--trail-accent);
+  --color-accent-fg: var(--trail-accent-fg);
+  --color-accent-subtle: var(--trail-accent-subtle);
+  --color-success: var(--trail-success);
+  --color-danger: var(--trail-danger);
+  --font-sans: var(--trail-font-sans);
+  --font-mono: var(--trail-font-mono);
+  --radius-md: var(--trail-radius-md);
+  --radius-lg: var(--trail-radius-lg);
+}
+
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/foundations.css";
+@import "./tokens/theme.css";
+@import "./components.css";

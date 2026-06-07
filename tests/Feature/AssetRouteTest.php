@@ -8,21 +8,17 @@ afterEach(function () {
     Trail::auth(null);
 });
 
-it('serves the design-system stylesheet as text/css', function () {
-    Trail::auth(fn () => true);
+it('Trail::styles() returns an inline style tag', function () {
+    $html = Trail::styles();
 
-    $response = $this->get('/trail/trail.css');
-
-    $response->assertOk();
-    expect($response->headers->get('Content-Type'))->toContain('text/css');
+    expect($html)
+        ->toStartWith('<style>')
+        ->toEndWith('</style>');
 });
 
-it('inlines the token layer and component classes', function () {
-    Trail::auth(fn () => true);
+it('Trail::styles() includes design-system tokens and component classes', function () {
+    $css = Trail::styles();
 
-    $css = $this->get('/trail/trail.css')->getContent();
-
-    // Tokens (colors + foundations) and component classes are concatenated.
     expect($css)
         ->toContain('--trail-accent')
         ->toContain('--trail-radius-lg')
@@ -30,11 +26,9 @@ it('inlines the token layer and component classes', function () {
         ->toContain('.trail-card');
 });
 
-it('strips @import statements from the served stylesheet', function () {
-    Trail::auth(fn () => true);
+it('Trail::styles() contains no external @import statements', function () {
+    $css = Trail::styles();
 
-    $css = $this->get('/trail/trail.css')->getContent();
-
-    // The Google Fonts @import is loaded via <link> in the layout instead.
-    expect($css)->not->toContain('@import');
+    // Google Fonts is loaded via <link> in the layout head - not in the compiled CSS.
+    expect($css)->not->toContain('@import url(');
 });

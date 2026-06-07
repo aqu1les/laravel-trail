@@ -40,5 +40,5 @@ it('links every screen through the shared sidebar', function () {
         ->toContain(route('trail.events'))
         ->toContain(route('trail.timeline'))
         ->toContain(route('trail.design-system'))
-        ->toContain('/trail/trail.css');
+        ->toContain('<style>');
 });
