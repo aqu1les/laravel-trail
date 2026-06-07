@@ -73,67 +73,103 @@ class Overview extends Component
         ];
     }
 
-    /** Per-bucket counts for the chart at the current granularity. */
+    /** Per-bucket counts for the chart — one GROUP BY query, no row loading. */
     private function realSeries(): array
     {
-        [$format, $count, $step, $labelFn] = match ($this->granularity) {
-            'Hora' => ['Y-m-d H', 12, 'subHours', fn (Carbon $d) => $d->format('H')],
-            'Semana' => ['o-W', 6, 'subWeeks', fn (Carbon $d) => $d->isoFormat('[S]ww')],
-            default => ['Y-m-d', 7, 'subDays', fn (Carbon $d) => ucfirst($d->locale('pt_BR')->isoFormat('ddd'))],
-        };
-
         $now = Carbon::now();
-        $buckets = [];
-        for ($i = $count - 1; $i >= 0; $i--) {
-            $d = (clone $now)->{$step}($i);
-            $buckets[$d->format($format)] = ['label' => $labelFn($d), 'count' => 0];
+
+        // Weeks roll up from a single daily aggregate (<= 42 rows).
+        if ($this->granularity === 'Semana') {
+            $weeks = 6;
+            $since = (clone $now)->subWeeks($weeks - 1)->startOfWeek();
+            $daily = $this->groupedCounts($since, 'day');
+            $labels = $counts = [];
+            for ($w = $weeks - 1; $w >= 0; $w--) {
+                $start = (clone $now)->subWeeks($w)->startOfWeek();
+                $sum = 0;
+                for ($d = 0; $d < 7; $d++) {
+                    $sum += $daily[(clone $start)->addDays($d)->format('Y-m-d')] ?? 0;
+                }
+                $labels[] = $w === 0 ? 'Atual' : "S-{$w}";
+                $counts[] = $sum;
+            }
+
+            return [$labels, $counts, array_sum($counts)];
         }
 
-        $since = (clone $now)->{$step}($count - 1)->startOf($this->granularity === 'Hora' ? 'hour' : ($this->granularity === 'Semana' ? 'week' : 'day'));
+        [$unit, $n, $step, $fmt, $labelFn] = $this->granularity === 'Hora'
+            ? ['hour', 12, 'subHours', 'Y-m-d H', fn (Carbon $d) => $d->format('H')]
+            : ['day', 7, 'subDays', 'Y-m-d', fn (Carbon $d) => ucfirst($d->locale('pt_BR')->isoFormat('ddd'))];
 
-        Trail::events()->between($since, Carbon::now())->toBuilder()
-            ->get(['occurred_at'])
-            ->each(function (TrailEvent $e) use (&$buckets, $format): void {
-                $key = $e->occurred_at->format($format);
-                if (isset($buckets[$key])) {
-                    $buckets[$key]['count']++;
-                }
-            });
+        $since = (clone $now)->{$step}($n - 1)->startOf($unit);
+        $grouped = $this->groupedCounts($since, $unit);
 
-        $labels = array_column($buckets, 'label');
-        $counts = array_column($buckets, 'count');
+        $labels = $counts = [];
+        for ($i = $n - 1; $i >= 0; $i--) {
+            $d = (clone $now)->{$step}($i);
+            $labels[] = $labelFn($d);
+            $counts[] = $grouped[$d->format($fmt)] ?? 0;
+        }
 
         return [$labels, $counts, array_sum($counts)];
     }
 
+    /**
+     * Bucketed event counts since a moment, aggregated in SQL.
+     *
+     * @return array<string,int> bucket key => count
+     */
+    private function groupedCounts(Carbon $since, string $unit): array
+    {
+        $builder = Trail::events()->between($since, Carbon::now())->toBuilder()->reorder();
+        $driver = $builder->getConnection()->getDriverName();
+
+        $expr = match ([$driver, $unit]) {
+            ['sqlite', 'hour'] => "strftime('%Y-%m-%d %H', occurred_at)",
+            ['sqlite', 'day'] => "strftime('%Y-%m-%d', occurred_at)",
+            ['mysql', 'hour'], ['mariadb', 'hour'] => "DATE_FORMAT(occurred_at, '%Y-%m-%d %H')",
+            ['mysql', 'day'], ['mariadb', 'day'] => "DATE_FORMAT(occurred_at, '%Y-%m-%d')",
+            ['pgsql', 'hour'] => "to_char(occurred_at, 'YYYY-MM-DD HH24')",
+            ['pgsql', 'day'] => "to_char(occurred_at, 'YYYY-MM-DD')",
+            default => null,
+        };
+
+        // Unknown driver: portable fallback over the bounded window.
+        if ($expr === null) {
+            $fmt = $unit === 'hour' ? 'Y-m-d H' : 'Y-m-d';
+
+            return $builder->get(['occurred_at'])
+                ->groupBy(fn (TrailEvent $e) => $e->occurred_at->format($fmt))
+                ->map->count()->all();
+        }
+
+        return $builder->selectRaw("{$expr} as bucket, count(*) as aggregate")
+            ->groupBy('bucket')->pluck('aggregate', 'bucket')
+            ->map(fn ($v) => (int) $v)->all();
+    }
+
     private function realActors(): array
     {
-        return Trail::events()->toBuilder()->reorder()
+        $rows = Trail::events()->toBuilder()->reorder()
             ->selectRaw('subject_type, subject_id, count(*) as aggregate')
             ->whereNotNull('subject_id')
             ->groupBy('subject_type', 'subject_id')
-            ->orderByDesc('aggregate')->limit(5)->get()
-            ->map(function ($row): array {
-                $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
-                $name = $this->resolveName($row->subject_type, $row->subject_id) ?? "{$type} #{$row->subject_id}";
+            ->orderByDesc('aggregate')->limit(5)->get();
 
-                return [
-                    'name' => $name,
-                    'meta' => "{$type} · {$row->subject_id}",
-                    'count' => $this->humanize((int) $row->aggregate),
-                ];
-            })->all();
-    }
+        $identities = $this->resolveIdentities(
+            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
+        );
 
-    private function resolveName(?string $type, mixed $id): ?string
-    {
-        if ($type === null || ! class_exists($type)) {
-            return null;
-        }
+        return $rows->map(function ($row) use ($identities): array {
+            $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
+            $id = $identities[$row->subject_type.'|'.$row->subject_id] ?? null;
 
-        $model = $type::query()->find($id);
-
-        return $model?->name ?? $model?->email ?? null;
+            return [
+                'name' => $id['name'] ?? $id['email'] ?? "{$type} #{$row->subject_id}",
+                'meta' => "{$type} · {$row->subject_id}",
+                'count' => $this->humanize((int) $row->aggregate),
+            ];
+        })->all();
     }
 
     private function humanize(int $n): string

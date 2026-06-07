@@ -71,33 +71,28 @@ class SubjectTimeline extends Component
     /** Distinct real subjects with resolved identity, most active first. */
     private function realActors(): array
     {
-        return Trail::events()->toBuilder()->reorder()
+        $rows = Trail::events()->toBuilder()->reorder()
             ->selectRaw('subject_type, subject_id, count(*) as aggregate')
             ->whereNotNull('subject_id')
             ->groupBy('subject_type', 'subject_id')
-            ->orderByDesc('aggregate')->limit(50)->get()
-            ->map(function ($row): array {
-                $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
-                [$name, $email] = $this->resolveIdentity($row->subject_type, $row->subject_id);
+            ->orderByDesc('aggregate')->limit(50)->get();
 
-                return [
-                    'key' => $row->subject_type.'|'.$row->subject_id,
-                    'name' => $name ?? "{$type} #{$row->subject_id}",
-                    'type' => $type,
-                    'id' => (string) $row->subject_id,
-                    'email' => $email,
-                ];
-            })->all();
-    }
+        $identities = $this->resolveIdentities(
+            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
+        );
 
-    private function resolveIdentity(?string $type, mixed $id): array
-    {
-        if ($type === null || ! class_exists($type)) {
-            return [null, null];
-        }
-        $model = $type::query()->find($id);
+        return $rows->map(function ($row) use ($identities): array {
+            $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
+            $id = $identities[$row->subject_type.'|'.$row->subject_id] ?? null;
 
-        return [$model?->name ?? null, $model?->email ?? null];
+            return [
+                'key' => $row->subject_type.'|'.$row->subject_id,
+                'name' => $id['name'] ?? "{$type} #{$row->subject_id}",
+                'type' => $type,
+                'id' => (string) $row->subject_id,
+                'email' => $id['email'] ?? null,
+            ];
+        })->all();
     }
 
     public function render(): View

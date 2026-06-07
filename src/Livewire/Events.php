@@ -6,6 +6,7 @@ namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
+use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
 
@@ -103,10 +104,9 @@ class Events extends Component
             return $this->events;
         }
 
-        return TrailEvent::query()
+        // Trail::events() already orders newest-first; just cap and eager-load.
+        return Trail::events()->toBuilder()
             ->with('subject')
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id')
             ->limit(200)
             ->get()
             ->map(fn (TrailEvent $event) => $this->normalizeEvent($event))

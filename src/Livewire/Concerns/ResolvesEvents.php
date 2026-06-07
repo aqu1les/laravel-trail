@@ -56,4 +56,33 @@ trait ResolvesEvents
             'ts' => (int) $event->occurred_at->getTimestampMs(),
         ];
     }
+
+    /**
+     * Batch-resolve subject identities, one query per distinct subject type
+     * (avoids an N+1 find() per actor).
+     *
+     * @param  list<array{0: ?string, 1: mixed}>  $pairs  [subject_type, subject_id]
+     * @return array<string, array{name: ?string, email: ?string}> keyed by "type|id"
+     */
+    protected function resolveIdentities(array $pairs): array
+    {
+        $idsByType = [];
+        foreach ($pairs as [$type, $id]) {
+            if ($type !== null && class_exists($type)) {
+                $idsByType[$type][] = $id;
+            }
+        }
+
+        $out = [];
+        foreach ($idsByType as $type => $ids) {
+            foreach ($type::query()->whereKey(array_values(array_unique($ids)))->get() as $model) {
+                $out[$type.'|'.$model->getKey()] = [
+                    'name' => $model->name ?? null,
+                    'email' => $model->email ?? null,
+                ];
+            }
+        }
+
+        return $out;
+    }
 }
