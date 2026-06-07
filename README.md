@@ -158,7 +158,9 @@ Set the default in config and override per-call when it matters.
 
 - **`sync`** — writes during the request. Simplest, adds a little latency. Great for local dev and events you can't afford to lose.
 - **`queue`** — dispatches a job and moves on. Negligible request overhead, needs a worker running. The recommended default.
-- **`ingest`** — buffers events and flushes in batches (Pulse-style) for high volume. *On the roadmap — see below.*
+- **`ingest`** — buffers events and flushes them in a single bulk insert (Pulse-style) for high volume. Buffer is `redis` (accumulates across requests) or `memory`, via `trail.ingest.buffer`.
+
+> The default `queue` (and `ingest`'s `redis` buffer) keep tracking off the request's critical path, but expect infrastructure — a queue worker, and Redis for `ingest`. `sync` needs neither but adds latency to every tracked request. See **Going to production** below.
 
 Recorders go through a Laravel `Manager`, so adding your own is a one-liner:
 
@@ -172,9 +174,17 @@ Trail auto-registers its routes under `/trail` (configurable via `trail.path`). 
 
 | Endpoint | Returns |
 | --- | --- |
-| `GET /trail/api/events` | Paginated events, newest first. Filter by `name`, `subject_type`, `subject_id`, `session_id`, `from`, `to` |
-| `GET /trail/api/metrics` | Totals, unique actors, top events |
-| `GET /trail/api/funnel?steps[]=a&steps[]=b` | Conversion through an ordered sequence of events |
+| `GET /trail/api/events` | Paginated events, newest first. Filter by `name`, `subject_type`, `subject_id`, `session_id`, `from`, `to`, `order` |
+| `GET /trail/api/metrics` | Totals, unique actors, top events, and a per-bucket time series (`period`) |
+| `GET /trail/api/funnel?steps[]=a&steps[]=b` | Conversion through an ordered sequence — count, rate, drop-off per step |
+
+In code (and from Livewire components), the same data is available through fluent read helpers:
+
+```php
+Trail::events()->for($user)->between($start, $end)->paginate(25);
+Trail::count('order.placed')->today();
+Trail::funnel(['signup', 'activated', 'purchase']);
+```
 
 ### Locking it down
 
@@ -212,6 +222,25 @@ A few of the knobs in `config/trail.php`:
 
 Because the config is published into your app, you override values by editing the file — no environment variables required for things like the subject model.
 
+## Going to production
+
+Recording works the moment you install and add the trait. Running it *well* takes a few deliberate steps, because the defaults favour performance over zero-setup:
+
+1. **Run a queue worker** — the default recorder is `queue`, so events sit in the queue until a worker handles them: `php artisan queue:work`. (Or set `TRAIL_RECORDER=sync`, accepting per-request latency; or `ingest` for batching.)
+2. **Provision Redis if you use `ingest`** — its default buffer is `redis`; otherwise set `TRAIL_INGEST_BUFFER=memory`.
+3. **Protect the dashboard** — define `Trail::auth(...)` (see above); it's `local`-only by default.
+4. **Schedule maintenance** so the dashboard stays fast and data doesn't grow forever:
+
+```php
+// routes/console.php
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command('trail:aggregate')->hourly();  // roll events into trail_aggregates
+Schedule::command('trail:prune')->daily();        // enforce the retention window
+```
+
+Artisan commands: `trail:install` (publish config + migrations + assets), `trail:aggregate`, `trail:prune`.
+
 ## Privacy
 
 This is deliberate, not an afterthought:
@@ -223,16 +252,16 @@ This is deliberate, not an afterthought:
 
 Shipped:
 
-- ✅ `track()` with sync + queue recorders
-- ✅ Polymorphic actor + `HasTrail` trait
+- ✅ `track()` with sync, queue and ingest recorders (pluggable Redis/memory buffer)
+- ✅ Polymorphic actor + `HasTrail` trait, configurable resolver
+- ✅ Fluent read helpers — `Trail::events()`, `Trail::count()`, `Trail::funnel()`
+- ✅ Pre-computed aggregates + `trail:aggregate`, `trail:prune`, `trail:install` commands
+- ✅ Privacy-aware context capture + opt-in page-view tracking
 - ✅ Auto-registered routes, JSON API, dashboard auth gate
 
 Next up:
 
-- ⏳ `ingest` recorder (in-memory / Redis buffer with batched flush)
-- ⏳ Pre-computed aggregates + `trail:aggregate`, `trail:prune`, `trail:install` commands
-- ⏳ Automatic context capture (IP/UA per the privacy config) and opt-in page-view tracking
-- ⏳ The visual dashboard (Overview, Events explorer, Funnels, Subject timeline)
+- ⏳ The visual dashboard screens (Overview, Events explorer, Funnels, Subject timeline) — Blade + Livewire
 - ⏳ Pluggable storage drivers (ClickHouse) for very high volume
 
 ## Testing
