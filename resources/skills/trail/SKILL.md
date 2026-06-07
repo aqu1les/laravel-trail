@@ -111,12 +111,66 @@ Schedule::command('trail:aggregate')->hourly();
 Schedule::command('trail:prune')->daily();
 ```
 
+## Automatic context capture
+
+Trail fills `context` automatically when `track()` is called - no extra code needed.
+
+**HTTP requests** - captures `url`, `method`, `referrer`, plus IP/user agent per `trail.privacy`.
+
+**Console commands and queue workers** - captures process-level attributes per `trail.console`:
+
+```php
+'console' => [
+    'capture_hostname'          => true,   // machine hostname
+    'capture_pid'               => true,   // process ID
+    'capture_command'           => true,   // command name, e.g. "queue:work"
+    'capture_command_arguments' => false,  // opt-in - may expose sensitive values
+    'capture_server_ip'         => false,  // opt-in
+],
+```
+
+`withContext()` values are merged on top and win on conflicts.
+
+### Custom context capture
+
+Implement `ContextCaptureContract` and point `trail.context_capture` at your class:
+
+```php
+use Trail\Trail\Contracts\ContextCaptureContract;
+
+class MyContextCapture implements ContextCaptureContract
+{
+    public function fromRequest(\Illuminate\Http\Request $request): array { ... }
+    public function fromConsole(): array { ... }
+}
+```
+
+Or extend the default class and override only the helpers you need:
+
+```php
+use Trail\Trail\Support\ContextCapture;
+
+class MyContextCapture extends ContextCapture
+{
+    protected function resolveHostname(): ?string
+    {
+        return 'worker-' . gethostname();
+    }
+}
+```
+
+```php
+// config/trail.php
+'context_capture' => \App\Support\MyContextCapture::class,
+```
+
 ## Configuration
 
 Everything lives in `config/trail.php` (publish with `php artisan vendor:publish --tag=trail-config`).
 Key options: `connection`, `recorder`, `queue`, `ingest.buffer`, `subject.resolver`/`subject.model`,
-`path`, `middleware`, `auto_track.page_views`, `privacy.*`, `retention.*`. Edit class names and
-structural defaults directly in the published file - `env()` is only for deploy-varying values.
+`path`, `middleware`, `auto_track.page_views`, `privacy.*`, `console.*`, `context_capture`,
+`retention.*`. Edit class names and structural defaults directly in the published file - `env()` is
+only for deploy-varying values.
 
 ## Going to production checklist
 
