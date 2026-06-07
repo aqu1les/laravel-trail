@@ -7,7 +7,11 @@ namespace Trail\Trail;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Trail\Trail\Console\AggregateCommand;
+use Trail\Trail\Console\InstallCommand;
+use Trail\Trail\Console\PruneCommand;
 use Trail\Trail\Http\Middleware\Authorize;
+use Trail\Trail\Support\EventBuffer;
 
 class TrailServiceProvider extends ServiceProvider
 {
@@ -23,6 +27,10 @@ class TrailServiceProvider extends ServiceProvider
         $this->app->singleton(Trail::class, fn (Application $app) => new Trail(
             $app->make(RecorderManager::class)
         ));
+
+        $this->app->singleton(EventBuffer::class, fn () => new EventBuffer(
+            flushAt: (int) config('trail.ingest.flush_at', 100),
+        ));
     }
 
     /**
@@ -34,6 +42,19 @@ class TrailServiceProvider extends ServiceProvider
         $this->registerResources();
         $this->registerPublishing();
         $this->registerCommands();
+        $this->registerIngestFlush();
+    }
+
+    /**
+     * Flush any buffered events at the end of the request/command lifecycle.
+     */
+    private function registerIngestFlush(): void
+    {
+        $this->app->terminating(function (): void {
+            if ($this->app->resolved(EventBuffer::class)) {
+                $this->app->make(EventBuffer::class)->flush();
+            }
+        });
     }
 
     /**
@@ -97,7 +118,9 @@ class TrailServiceProvider extends ServiceProvider
         }
 
         $this->commands([
-            //
+            AggregateCommand::class,
+            PruneCommand::class,
+            InstallCommand::class,
         ]);
     }
 }
