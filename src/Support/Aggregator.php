@@ -14,7 +14,7 @@ class Aggregator
     {
         $events = TrailEvent::query()
             ->whereBetween('occurred_at', [$from, $to])
-            ->get(['name', 'subject_id', 'value', 'occurred_at']);
+            ->get(['name', 'subject_type', 'subject_id', 'value', 'occurred_at']);
 
         $rows = $events
             ->groupBy(fn (TrailEvent $event): string => $this->bucket($event->occurred_at, $period)->toDateTimeString().'|'.$event->name)
@@ -28,7 +28,9 @@ class Aggregator
                     'bucket' => $this->bucket($first->occurred_at, $period),
                     'name' => $first->name,
                     'count' => $group->count(),
-                    'unique_subjects' => $group->whereNotNull('subject_id')->pluck('subject_id')->unique()->count(),
+                    'unique_subjects' => $group->whereNotNull('subject_id')
+                        ->unique(fn (TrailEvent $event): string => $event->subject_type.'|'.$event->subject_id)
+                        ->count(),
                     'sum_value' => $sum > 0 ? $sum : null,
                     'created_at' => now(),
                     'updated_at' => now(),

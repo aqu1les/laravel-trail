@@ -38,6 +38,14 @@ it('aggregates the real series across granularities via SQL', function () {
         ->set('granularity', 'Semana')->assertSee('Eventos ao longo do tempo', false);
 });
 
+it('counts actors with the same id but different type as two distinct unique subjects', function () {
+    TrailEvent::create(['name' => 'login', 'subject_type' => 'App\\Models\\User', 'subject_id' => 1, 'occurred_at' => now()]);
+    TrailEvent::create(['name' => 'login', 'subject_type' => 'App\\Models\\Team', 'subject_id' => 1, 'occurred_at' => now()]);
+
+    Livewire::test(Overview::class)
+        ->assertSeeInOrder(['Atores únicos ativos', '2']);
+});
+
 it('serves the series and top events from rollups when available', function () {
     // Only a pre-computed daily rollup exists - no raw events with this name.
     TrailAggregate::create([

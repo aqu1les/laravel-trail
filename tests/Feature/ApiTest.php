@@ -69,6 +69,25 @@ it('returns overview metrics', function () {
         ->assertJsonPath('top_events.0.count', 2);
 });
 
+it('counts actors with the same id but different type as two distinct unique subjects in overview metrics', function () {
+    makeEvent(['subject_type' => 'App\\Models\\User', 'subject_id' => 1]);
+    makeEvent(['subject_type' => 'App\\Models\\Team', 'subject_id' => 1]);
+
+    $this->getJson('/trail/api/metrics')
+        ->assertOk()
+        ->assertJsonPath('unique_subjects', 2);
+});
+
+it('counts actors with the same id but different type as two distinct unique subjects in series buckets', function () {
+    makeEvent(['subject_type' => 'App\\Models\\User', 'subject_id' => 1, 'occurred_at' => now()]);
+    makeEvent(['subject_type' => 'App\\Models\\Team', 'subject_id' => 1, 'occurred_at' => now()]);
+
+    $response = $this->getJson('/trail/api/metrics?period=day')->assertOk();
+
+    $bucket = collect($response->json('series'))->firstWhere('unique_subjects', '>', 0);
+    expect($bucket['unique_subjects'])->toBe(2);
+});
+
 it('computes funnel conversion per step', function () {
     $u1 = User::create(['name' => 'A']);
     $u2 = User::create(['name' => 'B']);

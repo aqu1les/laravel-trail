@@ -44,7 +44,11 @@ class MetricsController
                 'period' => $period,
             ],
             'total_events' => (clone $base)->count(),
-            'unique_subjects' => (clone $base)->whereNotNull('subject_id')->distinct()->count('subject_id'),
+            'unique_subjects' => \Illuminate\Support\Facades\DB::table(
+                (clone $base)->whereNotNull('subject_id')->whereNotNull('subject_type')
+                    ->select('subject_type', 'subject_id')->distinct(),
+                'unique_actors'
+            )->count(),
             'top_events' => $topEvents,
             'series' => $this->series($base, $period),
         ];
@@ -66,7 +70,7 @@ class MetricsController
         };
 
         $grouped = (clone $base)
-            ->get(['occurred_at', 'subject_id'])
+            ->get(['occurred_at', 'subject_type', 'subject_id'])
             ->groupBy(fn (TrailEvent $event): string => $event->occurred_at->format($format));
 
         $series = [];
@@ -75,7 +79,9 @@ class MetricsController
             $series[] = [
                 'bucket' => (string) $key,
                 'count' => $group->count(),
-                'unique_subjects' => $group->whereNotNull('subject_id')->pluck('subject_id')->unique()->count(),
+                'unique_subjects' => $group->whereNotNull('subject_id')
+                    ->unique(fn (TrailEvent $event): string => $event->subject_type.'|'.$event->subject_id)
+                    ->count(),
             ];
         }
 

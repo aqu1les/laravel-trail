@@ -38,6 +38,18 @@ it('aggregates events into day buckets idempotently', function () {
         ->and((float) $agg->sum_value)->toBe(22.0);
 });
 
+it('counts actors with the same id but different type as two distinct unique subjects when aggregating', function () {
+    $day = now()->startOfDay()->addHours(9);
+    TrailEvent::insert([
+        ['uuid' => (string) Str::uuid(), 'name' => 'login', 'subject_type' => 'App\\Models\\User', 'subject_id' => 1, 'value' => null, 'occurred_at' => $day, 'created_at' => $day],
+        ['uuid' => (string) Str::uuid(), 'name' => 'login', 'subject_type' => 'App\\Models\\Team', 'subject_id' => 1, 'value' => null, 'occurred_at' => $day, 'created_at' => $day],
+    ]);
+
+    (new Aggregator)->aggregate('day', now()->subDay(), now());
+
+    expect(TrailAggregate::firstWhere('name', 'login')->unique_subjects)->toBe(2);
+});
+
 it('runs the aggregate command for a period', function () {
     TrailEvent::create(['name' => 'a', 'occurred_at' => now()]);
 

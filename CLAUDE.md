@@ -1,5 +1,14 @@
 # Project instructions
 
+## Testing
+
+Use `./vendor/bin/pest` to run tests, not `phpunit` or `bun test`.
+
+```bash
+./vendor/bin/pest
+./vendor/bin/pest tests/Feature/SomeTest.php
+```
+
 ## Writing style
 
 - Never use the em dash (`—`) or en dash (`–`) anywhere in this project or its GitHub wiki.

@@ -63,7 +63,14 @@ class Overview extends Component
         // Exact figures the rollups can't safely provide (cross-name uniqueness,
         // per-actor breakdown) stay live.
         $totalEvents = Trail::events()->count();
-        $uniqueSubjects = Trail::events()->toBuilder()->reorder()->whereNotNull('subject_id')->distinct()->count('subject_id');
+        $uniqueSubjects = \Illuminate\Support\Facades\DB::table(
+            Trail::events()->toBuilder()->reorder()
+                ->whereNotNull('subject_id')
+                ->whereNotNull('subject_type')
+                ->select('subject_type', 'subject_id')
+                ->distinct(),
+            'unique_actors'
+        )->count();
         $todayEvents = Trail::events()->today();
 
         $metrics = [
