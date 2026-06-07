@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Livewire\Livewire;
 use Trail\Trail\Livewire\Overview;
+use Trail\Trail\Models\TrailAggregate;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Tests\Fixtures\User;
 use Trail\Trail\Trail;
@@ -39,7 +40,7 @@ it('aggregates the real series across granularities via SQL', function () {
 
 it('serves the series and top events from rollups when available', function () {
     // Only a pre-computed daily rollup exists - no raw events with this name.
-    \Trail\Trail\Models\TrailAggregate::create([
+    TrailAggregate::create([
         'period' => 'day',
         'bucket' => now()->startOfDay(),
         'name' => 'rollup.only',
