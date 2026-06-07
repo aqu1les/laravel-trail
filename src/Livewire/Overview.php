@@ -146,7 +146,7 @@ class Overview extends Component
             ->groupBy('name')->orderByDesc('c')->limit(6)->get();
     }
 
-    /** Per-bucket counts for the chart — one GROUP BY query, no row loading. */
+    /** Per-bucket counts for the chart - one GROUP BY query, no row loading. */
     private function liveSeries(): array
     {
         $now = Carbon::now();
@@ -240,7 +240,7 @@ class Overview extends Component
             return [
                 'name' => $id['name'] ?? $id['email'] ?? "{$type} #{$row->subject_id}",
                 'meta' => "{$type} · {$row->subject_id}",
-                'count' => $this->humanize((int) $row->aggregate),
+                'count' => $this->humanize((int) $row->getAttribute('aggregate')),
             ];
         })->all();
     }

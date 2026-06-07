@@ -206,7 +206,7 @@ final class Sample
     public static function dayLabel(int $ts): string
     {
         $day = Carbon::createFromTimestampMs($ts)->startOfDay();
-        $diff = $day->diffInDays(Carbon::today(), true);
+        $diff = (int) $day->diffInDays(Carbon::today(), true);
 
         if ($diff === 0) {
             return 'Hoje';

@@ -118,7 +118,7 @@ class Events extends Component
         $this->dispatch('drawer-open');
     }
 
-    /** The event set backing this render — demo buffer or a real query. */
+    /** The event set backing this render - demo buffer or a real query. */
     private function sourceEvents(): array
     {
         if ($this->demo) {
@@ -159,7 +159,7 @@ class Events extends Component
         $names = collect($all)->pluck('name')->unique()->sort()->values()->all();
 
         $actors = collect($all)->pluck('actor')->unique('id')->values()
-            ->reject(fn ($a) => $a['id'] === '—')->values()->all();
+            ->reject(fn ($a) => $a['id'] === '-')->values()->all();
 
         $selected = $this->selectedId !== null
             ? collect($all)->firstWhere('id', $this->selectedId)
