@@ -7,6 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+@if ($trailStylesheet = config('trail.stylesheet'))
+<link rel="stylesheet" href="{{ $trailStylesheet }}">
+@else
+{{-- Dev fallback: component CSS via the route + Tailwind compiled in-browser (CDN).
+     Not for production - build Trail into your Tailwind bundle and set
+     config('trail.stylesheet'). See the Theming docs. --}}
 <link rel="stylesheet" href="{{ route('trail.styles') }}">
 <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
 @verbatim
@@ -37,6 +43,7 @@
   html, body { height: 100%; margin: 0; }
 </style>
 @endverbatim
+@endif
 <style>
   .ds-label { font-size: 11px; color: var(--trail-text-faint); font-family: var(--trail-font-mono); }
   .cat-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }

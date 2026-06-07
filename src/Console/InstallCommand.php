@@ -11,15 +11,12 @@ class InstallCommand extends Command
 {
     protected $signature = 'trail:install';
 
-    protected $description = 'Install Trail: publish config and assets, and scaffold the dashboard gate';
+    protected $description = 'Install Trail: publish config and the agent skill, and scaffold the dashboard gate';
 
     public function handle(): int
     {
         $this->comment('Publishing Trail config...');
         $this->callSilently('vendor:publish', ['--tag' => 'trail-config']);
-
-        $this->comment('Publishing Trail assets...');
-        $this->callSilently('vendor:publish', ['--tag' => 'trail-assets', '--force' => true]);
 
         $this->comment('Publishing Trail agent skill...');
         $this->callSilently('vendor:publish', ['--tag' => 'trail-skill']);

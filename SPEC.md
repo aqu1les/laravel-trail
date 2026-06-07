@@ -241,9 +241,9 @@ published config. `env()` is reserved for deploy-varying values.
 | Tag | Publishes |
 |---|---|
 | `trail-config` | `config/trail.php` |
-| `trail-migrations` | timestamped migrations |
-| `trail-styles` | design-system CSS source (`resources/css/trail`) |
-| `trail-assets` | compiled assets → `public/vendor/trail` |
+| `trail-migrations` | timestamped migrations (optional - migrations auto-load) |
+| `trail-styles` | design-system CSS source (`resources/css/trail`) for your Tailwind build |
+| `trail-skill` | agent skill to `.claude/skills/trail/SKILL.md` |
 
 ## 13. Source layout
 

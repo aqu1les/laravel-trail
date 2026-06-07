@@ -58,6 +58,19 @@ return [
     'middleware' => ['web'],
 
     /*
+    | Compiled dashboard stylesheet (production).
+    |
+    | Trail's dashboard renders with hand-written component CSS (served at
+    | /<path>/trail.css) plus Tailwind utilities. Out of the box those utilities
+    | are compiled in-browser via the Tailwind CDN - fine for local use, not for
+    | production. For production, build Trail's views into your own Tailwind
+    | bundle (publish `trail-styles`, add the package views to your `@source`,
+    | `@import "trail/styles.css"`) and point this at the compiled file. When set,
+    | the dashboard loads it and skips the CDN. See the Theming docs.
+    */
+    'stylesheet' => env('TRAIL_DASHBOARD_CSS'),
+
+    /*
     |--------------------------------------------------------------------------
     | Automatic capture
     |--------------------------------------------------------------------------
