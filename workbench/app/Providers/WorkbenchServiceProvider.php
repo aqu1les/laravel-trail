@@ -12,8 +12,7 @@ class WorkbenchServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        // The real provider only publishes migrations; load them here for the harness.
-        $this->loadMigrationsFrom(__DIR__.'/../../../database/migrations');
+        // Trail's migrations are auto-loaded by its service provider.
 
         // Open the dashboard in the local harness.
         Trail::auth(fn () => $this->app->environment('local', 'testing'));

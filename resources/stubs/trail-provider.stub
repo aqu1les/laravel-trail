@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\ServiceProvider;
+use Trail\Trail\Trail;
+
+class TrailServiceProvider extends ServiceProvider
+{
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        $this->gate();
+    }
+
+    /**
+     * Decide who can access the Trail dashboard outside the local environment.
+     */
+    protected function gate(): void
+    {
+        Trail::auth(function (Request $request) {
+            return in_array($request->user()?->email, [
+                //
+            ]);
+        });
+    }
+}

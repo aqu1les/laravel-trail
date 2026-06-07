@@ -44,6 +44,8 @@ class TestCase extends Orchestra
 
     protected function defineDatabaseMigrations(): void
     {
+        // In real apps the service provider auto-loads these for `php artisan migrate`;
+        // testbench's per-test migrator needs them loaded here explicitly.
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         Schema::create('users', function (Blueprint $table) {

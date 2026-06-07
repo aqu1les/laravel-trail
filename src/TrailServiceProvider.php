@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Routing\Router;
@@ -53,12 +54,54 @@ class TrailServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerMigrations();
         $this->registerRoutes();
         $this->registerResources();
         $this->registerPublishing();
         $this->registerCommands();
+        $this->registerSchedule();
         $this->registerIngestFlush();
         $this->registerPageViewTracking();
+    }
+
+    /**
+     * Auto-load the package migrations so a plain `php artisan migrate` works.
+     *
+     * Skipped when the consumer has published the migrations into their app -
+     * then theirs run instead of ours, avoiding a duplicate table.
+     */
+    private function registerMigrations(): void
+    {
+        if ($this->migrationsPublished()) {
+            return;
+        }
+
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+    }
+
+    private function migrationsPublished(): bool
+    {
+        return count(glob(database_path('migrations/*_create_trail_events_table.php'))) > 0;
+    }
+
+    /**
+     * Auto-register the maintenance commands on the scheduler.
+     */
+    private function registerSchedule(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            if (config('trail.schedule.aggregate', true)) {
+                $schedule->command('trail:aggregate')->hourly();
+            }
+
+            if (config('trail.schedule.prune', true)) {
+                $schedule->command('trail:prune')->daily();
+            }
+        });
     }
 
     /**

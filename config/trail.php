@@ -88,4 +88,16 @@ return [
         'aggregates_days' => 730,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Scheduling
+    |--------------------------------------------------------------------------
+    | Trail auto-registers these on the scheduler. Set to false to manage them
+    | yourself in routes/console.php.
+    */
+    'schedule' => [
+        'aggregate' => true,
+        'prune' => true,
+    ],
+
 ];
