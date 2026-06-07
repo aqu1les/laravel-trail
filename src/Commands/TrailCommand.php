@@ -1,12 +1,12 @@
 <?php
 
-namespace VendorName\Skeleton\Commands;
+namespace Trail\Trail\Commands;
 
 use Illuminate\Console\Command;
 
-class SkeletonCommand extends Command
+class TrailCommand extends Command
 {
-    public $signature = 'skeleton';
+    public $signature = 'laravel-trail';
 
     public $description = 'My command';
 
