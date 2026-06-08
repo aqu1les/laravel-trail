@@ -62,33 +62,21 @@ php artisan vendor:publish --tag="trail-migrations"  # then these run instead of
 
 ### Installing from the Git repo (not on Packagist yet)
 
-Trail isn't published to Packagist. Point Composer at the repository from your app's `composer.json`:
-
-```json
-"repositories": [
-    { "type": "vcs", "url": "https://github.com/aqu1les/laravel-trail" }
-]
-```
-
-Then require the branch you want:
+Trail isn't published to Packagist. Register the VCS repository and require the package:
 
 ```bash
-composer require aqu1les/laravel-trail:dev-main
+composer config repositories.aqu1les/laravel-trail vcs https://github.com/aqu1les/laravel-trail.git
+composer require aqu1les/laravel-trail -W
 ```
+
+The `-W` flag lets Composer also update dependencies as needed to satisfy requirements.
 
 **Developing the package locally?** Use a `path` repository so your app symlinks your working copy and picks up edits with no reinstall:
 
-```json
-"repositories": [
-    { "type": "path", "url": "../laravel-trail" }
-]
-```
-
 ```bash
-composer require aqu1les/laravel-trail:@dev
+composer config repositories.aqu1les/laravel-trail path ../laravel-trail
+composer require aqu1les/laravel-trail:@dev -W
 ```
-
-The `dev-main`/`@dev` constraints already opt into dev stability for this one package. If Composer still refuses, add `"minimum-stability": "dev"` and `"prefer-stable": true` to your app's `composer.json`.
 
 ## Quick start
 
