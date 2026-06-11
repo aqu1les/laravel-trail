@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
+use Closure;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
@@ -14,6 +19,11 @@ use Trail\Trail\Models\TrailEvent;
 class SubjectTimeline extends Component
 {
     use ResolvesEvents;
+
+    /** Cap on how many subject rows a single morph type contributes to a text search. */
+    private const SEARCH_CAP = 1000;
+
+    private const INDEX_PER_PAGE = 25;
 
     public bool $demo = false;
 
@@ -122,7 +132,10 @@ class SubjectTimeline extends Component
         })->all();
     }
 
-    /** All actors for the index page, with search + type filter applied in PHP after identity resolution. */
+    /**
+     * One page of the actors index. Counting, ordering, search and pagination all run
+     * in SQL; identities are resolved for the current page only (not the whole table).
+     */
     private function indexActors(): array
     {
         $distinctTypes = Trail::events()->toBuilder()->reorder()
@@ -136,12 +149,26 @@ class SubjectTimeline extends Component
             ->values()
             ->all();
 
-        $rows = Trail::events()->toBuilder()->reorder()
+        $term = trim($this->indexSearch);
+        $filter = $this->indexFilters($term, $distinctTypes);
+
+        // Total distinct subjects, via a grouped subquery (portable count of groups).
+        $countSub = $filter(Trail::events()->toBuilder()->reorder())
+            ->selectRaw('1')
+            ->groupBy('subject_type', 'subject_id');
+        $total = DB::query()->fromSub($countSub, 'sub')->count();
+
+        $perPage = self::INDEX_PER_PAGE;
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = max(1, min($this->page, $totalPages));
+
+        $rows = $filter(Trail::events()->toBuilder()->reorder())
             ->selectRaw('subject_type, subject_id, count(*) as total, max(occurred_at) as last_seen')
-            ->whereNotNull('subject_id')
-            ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter))
             ->groupBy('subject_type', 'subject_id')
-            ->orderByDesc('total')
+            ->orderByDesc('last_seen')
+            ->orderBy('subject_type')
+            ->orderByDesc('subject_id')
+            ->limit($perPage)->offset(($page - 1) * $perPage)
             ->toBase()->get();
 
         $identities = $this->resolveIdentities(
@@ -166,35 +193,109 @@ class SubjectTimeline extends Component
             ];
         })->all();
 
-        if ($this->indexSearch !== '') {
-            $term = mb_strtolower($this->indexSearch);
-            $actors = array_values(array_filter($actors, fn ($a) => str_contains(mb_strtolower($a['id']), $term) ||
-                str_contains(mb_strtolower($a['name']), $term) ||
-                str_contains(mb_strtolower($a['email'] ?? ''), $term)
+        return [
+            'actors' => $actors,
+            'total' => $total,
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'distinctTypes' => $distinctTypes,
+        ];
+    }
+
+    /**
+     * Build the shared WHERE clause for the index (type filter + text search), so the
+     * count and the page query stay in sync. Search matches subject id directly, plus
+     * name/email looked up in each morph type's own table. Types whose model has no
+     * name/email column (or no resolvable class) are only reachable by id.
+     *
+     * @param  list<array{value: string, label: string}>  $distinctTypes
+     */
+    private function indexFilters(string $term, array $distinctTypes): Closure
+    {
+        $matchedByType = $term === '' ? [] : $this->searchSubjectIds($term, $distinctTypes);
+
+        return function (Builder $query) use ($term, $matchedByType): Builder {
+            $query->whereNotNull('subject_id')
+                ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter));
+
+            if ($term === '') {
+                return $query;
+            }
+
+            $query->where(function ($q) use ($term, $matchedByType): void {
+                $matched = false;
+
+                if (ctype_digit($term)) {
+                    $q->orWhere('subject_id', (int) $term);
+                    $matched = true;
+                }
+
+                foreach ($matchedByType as $type => $ids) {
+                    $q->orWhere(fn ($qq) => $qq->where('subject_type', $type)->whereIn('subject_id', $ids));
+                    $matched = true;
+                }
+
+                if (! $matched) {
+                    $q->whereRaw('1 = 0');
+                }
+            });
+
+            return $query;
+        };
+    }
+
+    /**
+     * For each morph type, find subject ids whose name/email matches the term, querying
+     * the subject's own (indexed) table. Capped per type so a broad term can't explode.
+     *
+     * @param  list<array{value: string, label: string}>  $distinctTypes
+     * @return array<string, list<int|string>> keyed by subject_type
+     */
+    private function searchSubjectIds(string $term, array $distinctTypes): array
+    {
+        $matched = [];
+
+        foreach ($distinctTypes as $entry) {
+            $type = $entry['value'];
+            $class = Relation::getMorphedModel($type) ?? $type;
+            if (! class_exists($class)) {
+                continue;
+            }
+
+            $model = new $class;
+            $schema = Schema::connection($model->getConnectionName());
+            $columns = array_values(array_filter(
+                ['name', 'email'],
+                fn ($c) => $schema->hasColumn($model->getTable(), $c)
             ));
+            if ($columns === []) {
+                continue;
+            }
+
+            $ids = $class::query()
+                ->where(function ($q) use ($columns, $term): void {
+                    foreach ($columns as $column) {
+                        $q->orWhere($column, 'like', "%{$term}%");
+                    }
+                })
+                ->limit(self::SEARCH_CAP)
+                ->pluck($model->getKeyName())
+                ->all();
+
+            if ($ids !== []) {
+                $matched[$type] = $ids;
+            }
         }
 
-        return ['actors' => $actors, 'distinctTypes' => $distinctTypes];
+        return $matched;
     }
 
     public function render(): View
     {
         if (! $this->demo && $this->actorId === '') {
-            ['actors' => $allActors, 'distinctTypes' => $distinctTypes] = $this->indexActors();
-
-            $perPage = 25;
-            $total = count($allActors);
-            $totalPages = max(1, (int) ceil($total / $perPage));
-            $page = max(1, min($this->page, $totalPages));
-            $paged = array_slice($allActors, ($page - 1) * $perPage, $perPage);
-
             return view('trail::livewire.subject-timeline', [
                 'indexMode' => true,
-                'actors' => $paged,
-                'total' => $total,
-                'page' => $page,
-                'totalPages' => $totalPages,
-                'distinctTypes' => $distinctTypes,
+                ...$this->indexActors(),
             ])->layout('trail::layout', ['active' => 'timeline', 'title' => 'Subject Timeline']);
         }
 
