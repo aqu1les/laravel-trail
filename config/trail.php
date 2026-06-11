@@ -61,6 +61,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Branding (rodape da sidebar)
+    |--------------------------------------------------------------------------
+    | footer_view: a view do rodape da sidebar. Sobrescreva publicando-a em
+    |   resources/views/vendor/trail/partials/, ou aponte para a sua propria view.
+    | back_url / back_label: link "voltar ao app" que o rodape padrao renderiza.
+    |   O link fica oculto quando back_url e null.
+    */
+    'branding' => [
+        'footer_view' => 'trail::partials.sidebar-footer',
+        'back_url' => env('TRAIL_BACK_URL'),
+        'back_label' => 'Voltar ao app',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Dashboard
     |--------------------------------------------------------------------------
     */
