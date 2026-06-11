@@ -18,3 +18,9 @@ it('shows the authenticated user name and initials in the footer', function () {
         ->assertSee('ada@acme.app', false)
         ->assertSee('>AL<', false);
 });
+
+it('omits the user block when no one is authenticated', function () {
+    $this->get('/trail')
+        ->assertOk()
+        ->assertDontSee('<span class="trail-avatar">', false);
+});
