@@ -18,7 +18,7 @@ it('shows the authenticated user name and initials in the footer', function () {
         ->assertOk()
         ->assertSee('Ada Lovelace', false)
         ->assertSee('ada@acme.app', false)
-        ->assertSee('>AL<', false);
+        ->assertSee('>AL</span>', false);
 });
 
 it('omits the user block when no one is authenticated', function () {

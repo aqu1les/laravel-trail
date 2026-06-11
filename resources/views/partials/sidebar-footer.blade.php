@@ -1,4 +1,4 @@
-{{-- Rodape padrao da sidebar. Sobrescreva via resources/views/vendor/trail/partials/ ou config('trail.branding.footer_view'). --}}
+{{-- Default sidebar footer. Override via resources/views/vendor/trail/partials/ or config('trail.branding.footer_view'). --}}
 @php($trailUser = auth()->user())
 <div class="px-3 py-3 border-t space-y-1" style="border-color: var(--trail-border);">
   @if ($trailBackUrl = config('trail.branding.back_url'))

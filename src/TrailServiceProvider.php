@@ -184,7 +184,7 @@ class TrailServiceProvider extends ServiceProvider
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'trail-migrations');
 
-        // Views sobrescreviveis do dashboard (ex.: o rodape da sidebar).
+        // Overridable dashboard views (e.g. the sidebar footer).
         $this->publishes([
             __DIR__.'/../resources/views/partials/sidebar-footer.blade.php' => resource_path('views/vendor/trail/partials/sidebar-footer.blade.php'),
         ], 'trail-views');
