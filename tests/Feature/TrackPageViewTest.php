@@ -21,3 +21,15 @@ it('does not track ignored routes', function () {
     $this->get('/admin/panel')->assertOk();
     expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
 });
+
+it('uses the configured event name for page views', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.page_views', true);
+    config()->set('trail.auto_track.event_name', 'visit.tracked');
+
+    Route::middleware(['web', TrackPageView::class])->get('/custom-name', fn () => 'ok');
+
+    $this->get('/custom-name')->assertOk();
+
+    expect(TrailEvent::firstWhere('name', 'visit.tracked'))->not->toBeNull();
+});
