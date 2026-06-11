@@ -51,15 +51,5 @@
     @endif
   </nav>
 
-  <div class="px-3 py-3 border-t space-y-1" style="border-color: var(--trail-border);">
-    <button class="trail-nav-item w-full" id="themeToggle" style="background:transparent">
-      <svg class="dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-      <svg class="hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-      <span class="dark:hidden">Tema claro</span><span class="hidden dark:inline">Tema escuro</span>
-    </button>
-    <div class="flex items-center gap-2.5 px-2 pt-2">
-      <span class="trail-avatar">DV</span>
-      <div class="leading-tight min-w-0"><div class="text-xs font-medium truncate">Dev · Admin</div><div class="ds-label truncate">acme.app</div></div>
-    </div>
-  </div>
+  @include(config('trail.branding.footer_view'))
 </aside>

@@ -48,9 +48,12 @@ class TestCase extends Orchestra
         // testbench's per-test migrator needs them loaded here explicitly.
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
+        view()->addNamespace('trail-fixtures', __DIR__.'/Fixtures/views');
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name')->nullable();
+            $table->string('email')->nullable();
             $table->timestamps();
         });
     }

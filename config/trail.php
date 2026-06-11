@@ -61,6 +61,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Branding (sidebar footer)
+    |--------------------------------------------------------------------------
+    | footer_view: the sidebar footer view. Override it by publishing the view to
+    |   resources/views/vendor/trail/partials/, or point this at your own view.
+    | back_url / back_label: the "back to your app" link the default footer renders.
+    |   The link is hidden when back_url is null.
+    */
+    'branding' => [
+        'footer_view' => 'trail::partials.sidebar-footer',
+        'back_url' => env('TRAIL_BACK_URL'),
+        'back_label' => 'Voltar ao app',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Dashboard
     |--------------------------------------------------------------------------
     */
