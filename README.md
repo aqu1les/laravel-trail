@@ -207,6 +207,14 @@ Three screens are built today, on your real data:
 
 There's also a **Design System** page at `/trail/design-system`, and - in your `local` environment only - **demo** versions of every screen under `/trail/demo/*`, so you can preview the UI with sample data before any real events land. Funnels is the one screen still on the roadmap.
 
+The sidebar footer is yours to brand. Set `trail.branding.back_url` (or `TRAIL_BACK_URL`) to add a "back to your app" link, and publish the footer view to replace it wholesale:
+
+```bash
+php artisan vendor:publish --tag="trail-views"
+```
+
+This drops `resources/views/vendor/trail/partials/sidebar-footer.blade.php`, which the dashboard renders in place of the default. Point `trail.branding.footer_view` at a different view to use your own instead.
+
 ### JSON API
 
 The same data is exposed as JSON, handy for your own tooling:
@@ -301,6 +309,12 @@ A few of the knobs in `config/trail.php`:
     'page_views' => false,      // set true to auto-record a page.viewed event per GET request
     'event_name' => 'page.viewed',
     'ignore'     => ['trail*', 'horizon*', 'telescope*', 'livewire*', '_debugbar*'],
+],
+
+'branding' => [
+    'footer_view' => 'trail::partials.sidebar-footer', // override the sidebar footer view
+    'back_url'    => env('TRAIL_BACK_URL'),             // null hides the "back to your app" link
+    'back_label'  => 'Voltar ao app',
 ],
 
 // Swap context capture entirely - must implement ContextCaptureContract.
