@@ -112,13 +112,25 @@ class SubjectTimeline extends Component
         return $actor + ['key' => $actor['id']];
     }
 
-    /** Distinct real subjects with resolved identity, most active first (used by timeline switcher). */
-    private function realActors(): array
+    /**
+     * Distinct real subjects with resolved identity, most active first (the
+     * timeline switcher list). With no search term this is the activity
+     * ranking; with a term it searches the whole database (name/email/id) the
+     * same way the actors index does, so a quiet subject is still reachable.
+     */
+    private function realActors(string $search = ''): array
     {
-        $rows = Trail::events()->toBuilder()->reorder()
+        $query = Trail::events()->toBuilder()->reorder()
             ->selectRaw('subject_type, subject_id, count(*) as aggregate')
-            ->whereNotNull('subject_id')
-            ->groupBy('subject_type', 'subject_id')
+            ->whereNotNull('subject_id');
+
+        $term = trim($search);
+        if ($term !== '') {
+            $matchedByType = $this->searchSubjectIds($term, $this->distinctSubjectTypes());
+            $query->where($this->searchWhere($term, $matchedByType));
+        }
+
+        $rows = $query->groupBy('subject_type', 'subject_id')
             ->orderByDesc('aggregate')->limit(50)->get();
 
         $identities = $this->resolveIdentities(
@@ -139,13 +151,35 @@ class SubjectTimeline extends Component
         })->all();
     }
 
-    /**
-     * One page of the actors index. Counting, ordering, search and pagination all run
-     * in SQL; identities are resolved for the current page only (not the whole table).
-     */
-    private function indexActors(): array
+    /** Resolve a single selected actor by its "subject_type|subject_id" key, regardless of ranking. */
+    private function resolveActor(string $key): array
     {
-        $distinctTypes = Trail::events()->toBuilder()->reorder()
+        if ($key === '') {
+            return ['key' => '', 'name' => '-', 'type' => '-', 'id' => '-', 'email' => null];
+        }
+
+        [$type, $id] = explode('|', $key, 2);
+        $identity = $this->resolveIdentities([[$type, $id]])[$key] ?? null;
+        $basename = $type !== '' ? class_basename($type) : 'Anônimo';
+
+        return [
+            'key' => $key,
+            'name' => $identity['name'] ?? "{$basename} #{$id}",
+            'type' => $basename,
+            'id' => (string) $id,
+            'email' => $identity['email'] ?? null,
+        ];
+    }
+
+    /**
+     * Distinct subject types present in the event stream, as {value,label} pairs
+     * sorted by label. Shared by the actors index and the switcher search.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    private function distinctSubjectTypes(): array
+    {
+        return Trail::events()->toBuilder()->reorder()
             ->select('subject_type')
             ->whereNotNull('subject_type')
             ->distinct()
@@ -155,6 +189,15 @@ class SubjectTimeline extends Component
             ->sortBy('label')
             ->values()
             ->all();
+    }
+
+    /**
+     * One page of the actors index. Counting, ordering, search and pagination all run
+     * in SQL; identities are resolved for the current page only (not the whole table).
+     */
+    private function indexActors(): array
+    {
+        $distinctTypes = $this->distinctSubjectTypes();
 
         $term = trim($this->indexSearch);
         $filter = $this->indexFilters($term, $distinctTypes);
@@ -225,29 +268,40 @@ class SubjectTimeline extends Component
             $query->whereNotNull('subject_id')
                 ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter));
 
-            if ($term === '') {
-                return $query;
+            if ($term !== '') {
+                $query->where($this->searchWhere($term, $matchedByType));
             }
 
-            $query->where(function ($q) use ($term, $matchedByType): void {
-                $matched = false;
-
-                if (ctype_digit($term)) {
-                    $q->orWhere('subject_id', (int) $term);
-                    $matched = true;
-                }
-
-                foreach ($matchedByType as $type => $ids) {
-                    $q->orWhere(fn ($qq) => $qq->where('subject_type', $type)->whereIn('subject_id', $ids));
-                    $matched = true;
-                }
-
-                if (! $matched) {
-                    $q->whereRaw('1 = 0');
-                }
-            });
-
             return $query;
+        };
+    }
+
+    /**
+     * The text-search predicate shared by the actors index and the timeline
+     * switcher: match the subject id directly (numeric terms) plus the ids whose
+     * name/email matched in each morph type's own table. An empty match set
+     * collapses to "no rows" so a non-numeric miss never returns everything.
+     *
+     * @param  array<string, list<int|string>>  $matchedByType  keyed by subject_type
+     */
+    private function searchWhere(string $term, array $matchedByType): Closure
+    {
+        return function ($q) use ($term, $matchedByType): void {
+            $matched = false;
+
+            if (ctype_digit($term)) {
+                $q->orWhere('subject_id', (int) $term);
+                $matched = true;
+            }
+
+            foreach ($matchedByType as $type => $ids) {
+                $q->orWhere(fn ($qq) => $qq->where('subject_type', $type)->whereIn('subject_id', $ids));
+                $matched = true;
+            }
+
+            if (! $matched) {
+                $q->whereRaw('1 = 0');
+            }
         };
     }
 
@@ -311,16 +365,11 @@ class SubjectTimeline extends Component
             $events = $this->demoEvents;
             $results = array_map(fn ($a) => $a + ['key' => $a['id']], Sample::actors());
         } else {
-            $actors = $this->realActors();
-            $actor = collect($actors)->firstWhere('key', $this->actorId)
-                ?? ['key' => '', 'name' => '-', 'type' => '-', 'id' => '-', 'email' => null];
+            $actor = $this->resolveActor($this->actorId);
             $events = $this->realEventsFor($actor['key']);
-            $results = $this->actorSearch !== ''
-                ? array_values(array_filter($actors, fn ($a) => str_contains(
-                    mb_strtolower($a['name'].' '.$a['id'].' '.($a['email'] ?? '')),
-                    mb_strtolower($this->actorSearch)
-                )))
-                : $actors;
+            // No term: the activity-ranked shortcut list. With a term: a database
+            // search so any actor is reachable, not just the most active ones.
+            $results = $this->realActors($this->actorSearch);
         }
 
         $pageViewName = Trail::pageViewName();

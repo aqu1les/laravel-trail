@@ -56,6 +56,65 @@ it('hides page-view events by default and reveals them on toggle', function () {
         ->assertSee('page.viewed', false);
 });
 
+it('switcher search finds an actor that ranks below the top activity list', function () {
+    // Flood the top of the activity ranking so a quiet subject cannot ride
+    // along in the default switcher list; the search must hit the database.
+    foreach (range(1, 60) as $i) {
+        $u = User::create(['name' => "Noise $i"]);
+        foreach (range(1, 5) as $j) {
+            TrailEvent::create([
+                'name' => 'order.placed',
+                'subject_type' => $u->getMorphClass(),
+                'subject_id' => $u->getKey(),
+                'occurred_at' => now(),
+            ]);
+        }
+    }
+    $marina = User::create(['name' => 'Marina Rocha']);
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => $marina->getMorphClass(),
+        'subject_id' => $marina->getKey(),
+        'occurred_at' => now(),
+    ]);
+
+    $results = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|1')
+        ->set('actorSearch', 'Marina')
+        ->viewData('results');
+
+    expect(collect($results)->pluck('name'))->toContain('Marina Rocha');
+});
+
+it('resolves a selected actor that ranks below the top activity list', function () {
+    foreach (range(1, 60) as $i) {
+        $u = User::create(['name' => "Noise $i"]);
+        foreach (range(1, 5) as $j) {
+            TrailEvent::create([
+                'name' => 'order.placed',
+                'subject_type' => $u->getMorphClass(),
+                'subject_id' => $u->getKey(),
+                'occurred_at' => now(),
+            ]);
+        }
+    }
+    $marina = User::create(['name' => 'Marina Rocha']);
+    TrailEvent::create([
+        'name' => 'signup',
+        'subject_type' => $marina->getMorphClass(),
+        'subject_id' => $marina->getKey(),
+        'occurred_at' => now(),
+    ]);
+
+    $actor = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', $marina->getMorphClass().'|'.$marina->getKey())
+        ->assertSee('Marina Rocha')
+        ->assertSee('signup', false)
+        ->viewData('actor');
+
+    expect($actor['name'])->toBe('Marina Rocha');
+});
+
 it('excludes hidden page views from the timeline stats and counts them when revealed', function () {
     TrailEvent::create([
         'name' => 'order.placed',

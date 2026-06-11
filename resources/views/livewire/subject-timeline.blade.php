@@ -1,4 +1,8 @@
 @use('Trail\Trail\Livewire\Sample')
+{{-- Single Livewire root element: a top-level @if would emit Livewire's
+     <!--[if BLOCK]--> marker before the real root, pushing wire:id onto the
+     wrong element and breaking wire:model on the search inputs. --}}
+<div style="display:contents">
 @if ($indexMode ?? false)
   @include('trail::livewire.subject-timeline-index')
 @else
@@ -134,3 +138,4 @@
   </div>
 </div>
 @endif
+</div>

@@ -61,6 +61,20 @@ it('finds a subject by name even when ranked low', function () {
         ->assertSee('Marina Rocha');
 });
 
+it('renders a single root element so wire:model on the search input stays live', function () {
+    // A top-level @if would emit Livewire's <!--[if BLOCK]--> marker before the
+    // real root, pushing wire:snapshot onto an inner element and leaving the
+    // search inputs outside the reactive root (wire:model silently dead). Guard
+    // that the first rendered element is the component root that owns the state.
+    $html = ltrim(Livewire::test(SubjectTimeline::class)->html());
+
+    expect($html)->toStartWith('<div ');
+
+    $firstTag = substr($html, 0, (int) strpos($html, '>'));
+    expect($firstTag)->toContain('wire:snapshot')
+        ->and($firstTag)->toContain('display:contents');
+});
+
 it('finds an unresolved subject only by id', function () {
     seedSubjectEvent('App\\Models\\Ghost', 4242, now()->toDateTimeString());
 
