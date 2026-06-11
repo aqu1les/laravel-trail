@@ -86,6 +86,9 @@
               <span class="trail-mono" style="font-size:11px">{{ $t['name'] }}</span>
             </button>
           @endforeach
+          <button class="trail-badge" wire:click="togglePageViews" style="cursor:pointer;height:24px;background:var(--trail-surface-2);color:var(--trail-text-muted);border:1px solid var(--trail-border)">
+            <span class="trail-mono" style="font-size:11px">{{ $showPageViews ? 'Esconder page views' : 'Mostrar page views' }}</span>
+          </button>
         </div>
       </div>
 
