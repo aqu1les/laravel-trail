@@ -26,6 +26,8 @@ class SubjectTimeline extends Component
     /** @var list<string> */
     public array $activeTypes = [];
 
+    public bool $showPageViews = false;
+
     /** @var list<array<string,mixed>> Demo history buffer (demo mode only). */
     public array $demoEvents = [];
 
@@ -68,6 +70,11 @@ class SubjectTimeline extends Component
         } else {
             $this->activeTypes[] = $name;
         }
+    }
+
+    public function togglePageViews(): void
+    {
+        $this->showPageViews = ! $this->showPageViews;
     }
 
     public function filterByType(string $type): void
@@ -215,9 +222,15 @@ class SubjectTimeline extends Component
                 : $actors;
         }
 
+        $pageViewName = (string) config('trail.auto_track.event_name', 'page.viewed');
+
         $filtered = $this->activeTypes !== []
             ? array_values(array_filter($events, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
             : $events;
+
+        if (! $this->showPageViews) {
+            $filtered = array_values(array_filter($filtered, fn ($e) => $e['name'] !== $pageViewName));
+        }
 
         $groups = [];
         foreach ($filtered as $e) {
@@ -231,7 +244,8 @@ class SubjectTimeline extends Component
             ];
         }
 
-        $types = collect($events)->pluck('name')->unique()->sort()->values()
+        $types = collect($events)->pluck('name')->reject(fn ($name) => $name === $pageViewName)
+            ->unique()->sort()->values()
             ->map(fn ($name) => [
                 'name' => $name,
                 'color' => Sample::colorFor($name),
@@ -240,6 +254,9 @@ class SubjectTimeline extends Component
 
         $ts = array_column($events, 'ts');
         $counts = array_count_values(array_column($events, 'name'));
+        if (! $this->showPageViews) {
+            unset($counts[$pageViewName]);
+        }
         arsort($counts);
         $byDay = [];
         foreach ($events as $e) {
