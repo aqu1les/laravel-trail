@@ -42,7 +42,17 @@ return [
     */
     'subject' => [
         // How Trail discovers the actor when track() is called without for().
-        'resolver' => fn () => auth()->user(),
+        // null = the authenticated user (auth()->user()).
+        //
+        // To customize, point this at the class name of an invokable that returns
+        // the subject Model (or null). This is the recommended approach: it stays
+        // serializable, so `php artisan config:cache` keeps working.
+        //
+        //     'resolver' => \App\Trail\CurrentTenant::class,
+        //
+        // where CurrentTenant has an __invoke() method returning the actor.
+        // Do not use a closure here: closures break `php artisan config:cache`.
+        'resolver' => null,
 
         // The model considered "default" for screens that list actors.
         // Override this directly in the published config to point at your own model.

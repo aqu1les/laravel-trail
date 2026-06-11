@@ -129,7 +129,11 @@ class PendingEvent
 
         $resolver = config('trail.subject.resolver');
 
-        $resolved = is_callable($resolver) ? $resolver() : null;
+        $resolved = match (true) {
+            is_string($resolver) => app($resolver)(),
+            is_callable($resolver) => $resolver(),
+            default => auth()->user(),
+        };
 
         return $resolved instanceof Model ? $resolved : null;
     }

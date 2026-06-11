@@ -10,6 +10,16 @@ beforeEach(function () {
     config()->set('trail.recorder', 'sync');
 });
 
+class FixedSubjectResolver
+{
+    public function __construct(private User $user) {}
+
+    public function __invoke(): User
+    {
+        return $this->user;
+    }
+}
+
 it('records a bare event synchronously', function () {
     Trail::track('product.viewed');
 
@@ -77,4 +87,53 @@ it('forces the sync recorder via sync() even when config differs', function () {
     Trail::sync()->track('critical.event');
 
     expect(TrailEvent::firstWhere('name', 'critical.event'))->not->toBeNull();
+});
+
+it('ships a config that survives config:cache (no closures)', function () {
+    $config = require __DIR__.'/../../config/trail.php';
+
+    $hasClosure = function (array $values) use (&$hasClosure): bool {
+        foreach ($values as $value) {
+            if ($value instanceof Closure) {
+                return true;
+            }
+
+            if (is_array($value) && $hasClosure($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
+    expect($hasClosure($config))->toBeFalse();
+});
+
+it('attributes events to the authenticated user when no resolver is configured', function () {
+    $user = User::create(['name' => 'Ada']);
+    config()->set('trail.subject.resolver', null);
+    $this->actingAs($user);
+
+    Trail::track('dashboard.opened');
+
+    expect(TrailEvent::firstWhere('name', 'dashboard.opened')->subject->is($user))->toBeTrue();
+});
+
+it('honors a callable resolver configured at runtime', function () {
+    $user = User::create(['name' => 'Grace']);
+    config()->set('trail.subject.resolver', fn () => $user);
+
+    Trail::track('report.generated');
+
+    expect(TrailEvent::firstWhere('name', 'report.generated')->subject->is($user))->toBeTrue();
+});
+
+it('resolves an invokable class-string resolver from the container', function () {
+    $user = User::create(['name' => 'Linus']);
+    config()->set('trail.subject.resolver', FixedSubjectResolver::class);
+    app()->instance(FixedSubjectResolver::class, new FixedSubjectResolver($user));
+
+    Trail::track('build.shipped');
+
+    expect(TrailEvent::firstWhere('name', 'build.shipped')->subject->is($user))->toBeTrue();
 });
