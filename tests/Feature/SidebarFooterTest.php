@@ -42,3 +42,12 @@ it('omits the back link when back_url is null', function () {
         ->assertOk()
         ->assertDontSee('Voltar ao app', false);
 });
+
+it('renders a custom footer view when footer_view is overridden', function () {
+    config()->set('trail.branding.footer_view', 'trail-fixtures::custom-footer');
+
+    $this->get('/trail')
+        ->assertOk()
+        ->assertSee('FOOTER CUSTOMIZADO', false)
+        ->assertDontSee('Tema escuro', false);
+});
