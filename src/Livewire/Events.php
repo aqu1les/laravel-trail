@@ -28,6 +28,8 @@ class Events extends Component
 
     public bool $live = true;
 
+    public bool $showPageViews = false;
+
     public ?int $selectedId = null;
 
     /** @var list<array<string,mixed>> Demo stream buffer (demo mode only). */
@@ -89,6 +91,12 @@ class Events extends Component
         $this->live = ! $this->live;
     }
 
+    public function togglePageViews(): void
+    {
+        $this->newId = null;
+        $this->showPageViews = ! $this->showPageViews;
+    }
+
     public function toggleEvent(string $name): void
     {
         $this->newId = null;
@@ -138,7 +146,12 @@ class Events extends Component
     {
         $all = $this->sourceEvents();
 
-        $visible = array_values(array_filter($all, function (array $e): bool {
+        $pageViewName = (string) config('trail.auto_track.event_name', 'page.viewed');
+
+        $visible = array_values(array_filter($all, function (array $e) use ($pageViewName): bool {
+            if (! $this->showPageViews && $e['name'] === $pageViewName) {
+                return false;
+            }
             if ($this->eventFilter !== [] && ! in_array($e['name'], $this->eventFilter, true)) {
                 return false;
             }
@@ -155,7 +168,8 @@ class Events extends Component
             return true;
         }));
 
-        $names = collect($all)->pluck('name')->unique()->sort()->values()->all();
+        $names = collect($all)->pluck('name')->reject(fn ($n) => $n === $pageViewName)
+            ->unique()->sort()->values()->all();
 
         $actors = collect($all)
             ->reject(fn ($e) => ($e['subject_key'] ?? '') === '')
