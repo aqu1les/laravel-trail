@@ -16,9 +16,7 @@ class TrackPageView
         $response = $next($request);
 
         if ($this->shouldTrack($request)) {
-            $name = (string) config('trail.auto_track.event_name', 'page.viewed');
-
-            Trail::withContext(['route' => $request->route()?->getName()])->track($name);
+            Trail::withContext(['route' => $request->route()?->getName()])->track(Trail::pageViewName());
         }
 
         return $response;

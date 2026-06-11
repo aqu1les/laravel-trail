@@ -79,7 +79,7 @@
     <div class="overflow-auto trail-scroll">
       <div class="px-7 pt-5 pb-2 sticky top-0 z-10" style="background: color-mix(in srgb, var(--trail-bg) 88%, transparent); backdrop-filter: blur(6px);">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="ds-label mr-1" style="align-self:center">{{ count($events) }} eventos</span>
+          <span class="ds-label mr-1" style="align-self:center">{{ $stats['total'] }} eventos</span>
           @foreach ($types as $t)
             <button class="trail-badge" wire:click="toggleType('{{ $t['name'] }}')" style="cursor:pointer;height:24px;{{ $t['on'] ? "background:{$t['color']};color:#fff;border-color:transparent" : 'background:var(--trail-surface-2);color:var(--trail-text-muted);border:1px solid var(--trail-border)' }}">
               <span class="cat-dot" style="width:6px;height:6px;border-radius:2px;background:{{ $t['on'] ? '#fff' : $t['color'] }};display:inline-block"></span>

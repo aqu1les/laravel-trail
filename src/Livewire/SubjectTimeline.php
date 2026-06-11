@@ -222,7 +222,7 @@ class SubjectTimeline extends Component
                 : $actors;
         }
 
-        $pageViewName = (string) config('trail.auto_track.event_name', 'page.viewed');
+        $pageViewName = Trail::pageViewName();
 
         $filtered = $this->activeTypes !== []
             ? array_values(array_filter($events, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
@@ -231,6 +231,14 @@ class SubjectTimeline extends Component
         if (! $this->showPageViews) {
             $filtered = array_values(array_filter($filtered, fn ($e) => $e['name'] !== $pageViewName));
         }
+
+        // Stats reflect the actor's activity independent of the type-chip filter,
+        // but they do follow the page-view hide toggle: when page views are
+        // hidden the totals, top event, and daily bars all exclude them, so the
+        // panel stays consistent with the visible timeline.
+        $statsEvents = $this->showPageViews
+            ? $events
+            : array_values(array_filter($events, fn ($e) => $e['name'] !== $pageViewName));
 
         $groups = [];
         foreach ($filtered as $e) {
@@ -252,14 +260,11 @@ class SubjectTimeline extends Component
                 'on' => in_array($name, $this->activeTypes, true),
             ])->all();
 
-        $ts = array_column($events, 'ts');
-        $counts = array_count_values(array_column($events, 'name'));
-        if (! $this->showPageViews) {
-            unset($counts[$pageViewName]);
-        }
+        $ts = array_column($statsEvents, 'ts');
+        $counts = array_count_values(array_column($statsEvents, 'name'));
         arsort($counts);
         $byDay = [];
-        foreach ($events as $e) {
+        foreach ($statsEvents as $e) {
             $k = (int) (strtotime(date('Y-m-d', (int) ($e['ts'] / 1000))) * 1000);
             $byDay[$k] = ($byDay[$k] ?? 0) + 1;
         }
@@ -277,7 +282,7 @@ class SubjectTimeline extends Component
             'events' => $events,
             'empty' => $filtered === [],
             'stats' => [
-                'total' => count($events),
+                'total' => count($statsEvents),
                 'sessions' => $counts['session.started'] ?? 0,
                 'first' => $ts === [] ? '-' : Sample::fullDate(min($ts)),
                 'last' => $ts === [] ? '-' : Sample::relative(max($ts)),

@@ -114,6 +114,17 @@ class Trail
     }
 
     /**
+     * The event name used for automatic page-view tracking.
+     *
+     * Single source of truth for the middleware that records page views and the
+     * dashboard screens that hide them by default.
+     */
+    public function pageViewName(): string
+    {
+        return (string) config('trail.auto_track.event_name', 'page.viewed');
+    }
+
+    /**
      * Return the compiled dashboard CSS as an inline <style> tag.
      *
      * Mirrors the Laravel Pulse pattern: dist/trail.css is pre-compiled

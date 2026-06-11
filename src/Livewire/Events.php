@@ -93,6 +93,8 @@ class Events extends Component
 
     public function togglePageViews(): void
     {
+        // Clear the new-row highlight: revealing previously hidden page views
+        // should not flash them as if they had just arrived from the live poll.
         $this->newId = null;
         $this->showPageViews = ! $this->showPageViews;
     }
@@ -146,7 +148,7 @@ class Events extends Component
     {
         $all = $this->sourceEvents();
 
-        $pageViewName = (string) config('trail.auto_track.event_name', 'page.viewed');
+        $pageViewName = Trail::pageViewName();
 
         $visible = array_values(array_filter($all, function (array $e) use ($pageViewName): bool {
             if (! $this->showPageViews && $e['name'] === $pageViewName) {

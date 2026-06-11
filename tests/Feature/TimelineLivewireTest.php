@@ -55,3 +55,30 @@ it('hides page-view events by default and reveals them on toggle', function () {
         ->assertSet('showPageViews', true)
         ->assertSee('page.viewed', false);
 });
+
+it('excludes hidden page views from the timeline stats and counts them when revealed', function () {
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now(),
+    ]);
+    TrailEvent::create([
+        'name' => 'page.viewed',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now(),
+    ]);
+    TrailEvent::create([
+        'name' => 'page.viewed',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->assertSee('1 eventos', false)
+        ->call('togglePageViews')
+        ->assertSee('3 eventos', false);
+});
