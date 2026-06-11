@@ -47,6 +47,29 @@ it('opens the drawer for a selected event', function () {
         ->assertDispatched('drawer-open');
 });
 
+it('hides page-view events by default and reveals them on toggle', function () {
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 1,
+        'occurred_at' => now(),
+    ]);
+    TrailEvent::create([
+        'name' => 'page.viewed',
+        'subject_type' => User::class,
+        'subject_id' => 1,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::test(Events::class)
+        ->assertSet('showPageViews', false)
+        ->assertSee('order.placed', false)
+        ->assertDontSee('page.viewed', false)
+        ->call('togglePageViews')
+        ->assertSet('showPageViews', true)
+        ->assertSee('page.viewed', false);
+});
+
 it('only refreshes the real stream when new events arrive', function () {
     $component = Livewire::test(Events::class)->assertSet('lastSeenId', 0);
 

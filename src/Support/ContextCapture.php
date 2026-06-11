@@ -29,6 +29,14 @@ class ContextCapture implements ContextCaptureContract
             'referrer' => $request->headers->get('referer'),
         ];
 
+        foreach (['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as $param) {
+            $value = $request->query($param);
+
+            if (is_string($value) && $value !== '') {
+                $context[$param] = $value;
+            }
+        }
+
         if ($storeIp) {
             $ip = $request->ip();
 

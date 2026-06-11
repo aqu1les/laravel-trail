@@ -6,6 +6,7 @@ namespace Trail\Trail;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
@@ -17,12 +18,31 @@ use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Contracts\EventBuffer;
 use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
+use Trail\Trail\Support\ConfigMerge;
 use Trail\Trail\Support\ContextCapture;
 use Trail\Trail\Support\MemoryEventBuffer;
 use Trail\Trail\Support\RedisEventBuffer;
 
 class TrailServiceProvider extends ServiceProvider
 {
+    /**
+     * Recursively merge the package config under any published user config,
+     * so newly added nested keys reach users who published an older config.
+     */
+    protected function mergeConfigFrom($path, $key)
+    {
+        if ($this->app instanceof CachesConfiguration && $this->app->configurationIsCached()) {
+            return;
+        }
+
+        $config = $this->app->make('config');
+
+        $config->set($key, ConfigMerge::merge(
+            require $path,
+            (array) $config->get($key, [])
+        ));
+    }
+
     /**
      * Register the package services.
      */

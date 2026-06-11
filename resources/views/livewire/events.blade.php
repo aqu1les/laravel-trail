@@ -22,6 +22,9 @@
         <button class="{{ $period === '7d' ? 'is-active' : '' }}" wire:click="$set('period', '7d')">7d</button>
         <button class="{{ $period === '30d' ? 'is-active' : '' }}" wire:click="$set('period', '30d')">30d</button>
       </div>
+      <button class="trail-btn trail-btn-secondary" wire:click="togglePageViews">
+        <span>{{ $showPageViews ? 'Esconder page views' : 'Mostrar page views' }}</span>
+      </button>
     </div>
   </header>
 

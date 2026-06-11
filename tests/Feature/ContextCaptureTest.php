@@ -106,6 +106,31 @@ it('omits server ip unless opted in', function () {
     expect($c)->not->toHaveKey('server_ip');
 });
 
+it('extracts present utm params as flat keys', function () {
+    $request = Request::create('/landing', 'GET', [
+        'utm_source' => 'newsletter',
+        'utm_medium' => 'email',
+        'utm_campaign' => 'spring',
+    ]);
+
+    $c = (new ContextCapture)->fromRequest($request);
+
+    expect($c['utm_source'])->toBe('newsletter')
+        ->and($c['utm_medium'])->toBe('email')
+        ->and($c['utm_campaign'])->toBe('spring')
+        ->and($c)->not->toHaveKey('utm_term')
+        ->and($c)->not->toHaveKey('utm_content');
+});
+
+it('omits utm params that are absent or empty', function () {
+    $request = Request::create('/landing', 'GET', ['utm_source' => '']);
+
+    $c = (new ContextCapture)->fromRequest($request);
+
+    expect($c)->not->toHaveKey('utm_source')
+        ->and($c)->not->toHaveKey('utm_medium');
+});
+
 it('resolves custom context capture class from config', function () {
     $custom = new class implements ContextCaptureContract
     {
