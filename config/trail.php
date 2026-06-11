@@ -87,6 +87,7 @@ return [
     */
     'auto_track' => [
         'page_views' => false,
+        'event_name' => 'page.viewed',
         'ignore' => ['trail*', 'horizon*', 'telescope*', 'livewire*', '_debugbar*'],
     ],
 
