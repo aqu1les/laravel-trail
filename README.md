@@ -150,7 +150,7 @@ A naming convention pays off fast: `domain.action` (`order.placed`, `onboarding.
 
 Trail fills the `context` field automatically - no extra code needed.
 
-During a routed **HTTP request** it captures `url`, `method`, and `referrer`, plus IP and user agent according to your `privacy` config.
+During a routed **HTTP request** it captures `url`, `method`, and `referrer`, plus IP and user agent according to your `privacy` config. When UTM parameters are present in the query string, `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, and `utm_content` are also captured as flat context keys - only the ones actually present are included.
 
 In **Artisan commands and queue workers** it captures process-level attributes: `hostname`, `pid`, and `command` by default. `command_arguments` and `server_ip` are opt-in via `trail.console` (they can contain sensitive values). Your `withContext()` calls merge on top and win on conflicts.
 
@@ -202,8 +202,8 @@ Trail ships an embedded dashboard at `/trail` (configurable via `trail.path`), i
 Three screens are built today, on your real data:
 
 - **Overview** (`/trail`) - totals, unique actors, a time series with hour/day/week granularity, top events and most-active actors.
-- **Events** (`/trail/events`) - a filterable, live-updating stream with a payload drawer (properties, context, raw JSON).
-- **Subject Timeline** (`/trail/timeline`) - every event of a single actor, grouped by day, with inline payload expansion.
+- **Events** (`/trail/events`) - a filterable, live-updating stream with a payload drawer (properties, context, raw JSON). Page-view events are hidden by default; a toggle button reveals them.
+- **Subject Timeline** (`/trail/timeline`) - every event of a single actor, grouped by day, with inline payload expansion. Page-view events are hidden by default; a toggle button reveals them.
 
 There's also a **Design System** page at `/trail/design-system`, and - in your `local` environment only - **demo** versions of every screen under `/trail/demo/*`, so you can preview the UI with sample data before any real events land. Funnels is the one screen still on the roadmap.
 
@@ -295,6 +295,12 @@ A few of the knobs in `config/trail.php`:
     'capture_command'           => true,
     'capture_command_arguments' => false, // opt-in - may expose sensitive values
     'capture_server_ip'         => false, // opt-in
+],
+
+'auto_track' => [
+    'page_views' => false,      // set true to auto-record a page.viewed event per GET request
+    'event_name' => 'page.viewed',
+    'ignore'     => ['trail*', 'horizon*', 'telescope*', 'livewire*', '_debugbar*'],
 ],
 
 // Swap context capture entirely - must implement ContextCaptureContract.
