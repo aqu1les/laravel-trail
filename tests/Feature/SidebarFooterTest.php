@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Tests\Fixtures\User;
 use Trail\Trail\Trail;
+use Trail\Trail\TrailServiceProvider;
 
 beforeEach(fn () => Trail::auth(fn () => true));
 afterEach(fn () => Trail::auth(null));
@@ -50,4 +52,14 @@ it('renders a custom footer view when footer_view is overridden', function () {
         ->assertOk()
         ->assertSee('FOOTER CUSTOMIZADO', false)
         ->assertDontSee('Tema escuro', false);
+});
+
+it('registers the footer view under the trail-views publish tag', function () {
+    $paths = ServiceProvider::pathsToPublish(
+        TrailServiceProvider::class,
+        'trail-views'
+    );
+
+    expect($paths)->not->toBeEmpty();
+    expect(implode('|', array_values($paths)))->toContain('partials');
 });

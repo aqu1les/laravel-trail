@@ -184,6 +184,11 @@ class TrailServiceProvider extends ServiceProvider
             __DIR__.'/../database/migrations' => database_path('migrations'),
         ], 'trail-migrations');
 
+        // Views sobrescreviveis do dashboard (ex.: o rodape da sidebar).
+        $this->publishes([
+            __DIR__.'/../resources/views/partials/sidebar-footer.blade.php' => resource_path('views/vendor/trail/partials/sidebar-footer.blade.php'),
+        ], 'trail-views');
+
         // Agent skill: drops a Trail usage guide into the consumer's repo so AI
         // assistants know how to use the package.
         $this->publishes([
