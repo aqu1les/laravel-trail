@@ -22,6 +22,8 @@ it('persists an aggregate row with the unique tuple', function () {
 });
 
 it('aggregates events into day buckets idempotently', function () {
+    $this->travelTo(now()->startOfDay()->addHours(12));
+
     $day = now()->startOfDay()->addHours(9);
     TrailEvent::insert([
         ['uuid' => (string) Str::uuid(), 'name' => 'order.placed', 'subject_type' => 'U', 'subject_id' => 1, 'value' => 10, 'occurred_at' => $day, 'created_at' => $day],
@@ -39,6 +41,8 @@ it('aggregates events into day buckets idempotently', function () {
 });
 
 it('counts actors with the same id but different type as two distinct unique subjects when aggregating', function () {
+    $this->travelTo(now()->startOfDay()->addHours(12));
+
     $day = now()->startOfDay()->addHours(9);
     TrailEvent::insert([
         ['uuid' => (string) Str::uuid(), 'name' => 'login', 'subject_type' => 'App\\Models\\User', 'subject_id' => 1, 'value' => null, 'occurred_at' => $day, 'created_at' => $day],
