@@ -2,6 +2,10 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.0.3 - 2026-06-12
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.0.2...v1.0.3
+
 ## v1.0.2 - 2026-06-11
 
 ### What's Changed
