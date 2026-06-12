@@ -16,7 +16,13 @@ class TrackPageView
         $response = $next($request);
 
         if ($this->shouldTrack($request)) {
-            Trail::withContext(['route' => $request->route()?->getName()])->track(Trail::pageViewName());
+            $properties = ['path' => $request->path()];
+
+            if ($route = $request->route()?->getName()) {
+                $properties = ['route' => $route] + $properties;
+            }
+
+            Trail::track(Trail::pageViewName(), $properties);
         }
 
         return $response;
