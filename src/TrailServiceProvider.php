@@ -7,8 +7,8 @@ namespace Trail\Trail;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Contracts\Redis\Factory as Redis;
-use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Console\AggregateCommand;
@@ -141,9 +141,12 @@ class TrailServiceProvider extends ServiceProvider
             return;
         }
 
-        /** @var Router $router */
-        $router = $this->app->make('router');
-        $router->pushMiddlewareToGroup('web', TrackPageView::class);
+        // Push onto the HTTP kernel's group, not the router's. The kernel is the
+        // source of truth: any later syncMiddlewareToRouter() (triggered when other
+        // providers or bootstrap/app.php mutate middleware after we boot) overwrites
+        // the router's groups from the kernel, which would drop a router-only push.
+        $kernel = $this->app->make(HttpKernel::class);
+        $kernel->appendMiddlewareToGroup('web', TrackPageView::class);
     }
 
     /**
