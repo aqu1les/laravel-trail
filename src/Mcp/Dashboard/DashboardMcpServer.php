@@ -8,6 +8,7 @@ use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
+use Trail\Trail\Mcp\Dashboard\Prompts\AnalysisPrompt;
 use Trail\Trail\Mcp\Dashboard\Tools\CatalogTool;
 use Trail\Trail\Mcp\Dashboard\Tools\EventsTool;
 use Trail\Trail\Mcp\Dashboard\Tools\FunnelTool;
@@ -31,5 +32,7 @@ class DashboardMcpServer extends Server
     /**
      * @var array<int, class-string<\Laravel\Mcp\Server\Prompt>>
      */
-    protected array $prompts = [];
+    protected array $prompts = [
+        AnalysisPrompt::class,
+    ];
 }
