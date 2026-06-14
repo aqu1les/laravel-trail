@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Trail\Trail\Queries\EventQuery count(string $name)
  * @method static string pageViewName()
  * @method static array<string, mixed> funnel(array<int, string> $steps)
+ * @method static void mcpUsing(?\Closure $callback)
+ * @method static bool canAccessMcp(\Illuminate\Http\Request $request)
  *
  * @see \Trail\Trail\Trail
  */
