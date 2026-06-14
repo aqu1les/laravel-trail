@@ -9,6 +9,7 @@ use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 use Trail\Trail\Mcp\Dashboard\Tools\CatalogTool;
+use Trail\Trail\Mcp\Dashboard\Tools\EventsTool;
 use Trail\Trail\Mcp\Dashboard\Tools\FunnelTool;
 use Trail\Trail\Mcp\Dashboard\Tools\MetricsTool;
 
@@ -24,6 +25,7 @@ class DashboardMcpServer extends Server
         CatalogTool::class,
         MetricsTool::class,
         FunnelTool::class,
+        EventsTool::class,
     ];
 
     /**
