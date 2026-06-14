@@ -213,6 +213,13 @@ class TrailServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../resources/skills/trail/SKILL.md' => base_path('.claude/skills/trail/SKILL.md'),
         ], 'trail-skill');
+
+        // Publishable TypeScript browser client. Consumers run
+        // `php artisan vendor:publish --tag=trail-js` and import from
+        // resources/js/vendor/trail. Re-run with --force after a package upgrade.
+        $this->publishes([
+            __DIR__.'/../resources/js/trail' => resource_path('js/vendor/trail'),
+        ], 'trail-js');
     }
 
     /**
