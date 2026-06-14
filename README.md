@@ -281,6 +281,45 @@ Trail::auth(fn ($request) => $request->user()?->isAdmin() ?? false);
 
 Same idea as Horizon and Telescope. If the gate says no, the request gets a 403.
 
+## Dashboard MCP
+
+Point an external MCP client (Claude Desktop, Cursor, Claude Code) at your app
+and analyze your own behavioral data through an LLM: "why did conversion drop
+last week", "what do users do right before they churn". The Dashboard MCP
+exposes Trail's read data as a small set of curated, read-only tools plus an
+analysis prompt.
+
+It is off by default and needs the optional package:
+
+```bash
+composer require laravel/mcp
+```
+
+Enable it and set a token in your environment:
+
+```env
+TRAIL_MCP_DASHBOARD=true
+TRAIL_MCP_DASHBOARD_TOKEN=your-long-random-token
+```
+
+By default the gate denies everything outside `local`. In production, register a
+token check (typically in a service provider):
+
+```php
+use Trail\Trail\Trail;
+
+Trail::mcpUsing(fn ($request) => hash_equals(
+    config('trail.mcp.dashboard.token', ''),
+    (string) $request->bearerToken(),
+));
+```
+
+The server is mounted at `/trail-mcp` (configurable) on a stateless pipeline,
+independent of the dashboard and JSON API gates. Tools: `trail_catalog`,
+`trail_metrics`, `trail_funnel`, `trail_events`, plus the `trail_analysis`
+prompt. Event `properties` and `context` are never exposed unless you opt in via
+`trail.mcp.dashboard.expose_properties`. See the wiki for the full guide.
+
 ## Configuration
 
 A few of the knobs in `config/trail.php`:
