@@ -9,14 +9,12 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Contracts\Redis\Factory as Redis;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Console\AggregateCommand;
 use Trail\Trail\Console\InstallCommand;
 use Trail\Trail\Console\PruneCommand;
 use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Contracts\EventBuffer;
-use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
 use Trail\Trail\Support\ConfigMerge;
 use Trail\Trail\Support\ContextCapture;
@@ -166,13 +164,11 @@ class TrailServiceProvider extends ServiceProvider
      */
     private function registerRoutes(): void
     {
-        Route::group([
-            'prefix' => config('trail.path', 'trail'),
-            'middleware' => array_merge((array) config('trail.middleware', ['web']), [Authorize::class]),
-            'as' => 'trail.',
-        ], function () {
-            $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
-        });
+        if (! config('trail.register_routes', true)) {
+            return;
+        }
+
+        Trail::routes();
     }
 
     /**

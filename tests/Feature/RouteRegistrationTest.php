@@ -26,3 +26,7 @@ it('keeps the view gate independent from the ingest gate', function () {
     expect(Trail::check(request()))->toBeFalse()
         ->and(Trail::canIngest(request()))->toBeTrue();
 });
+
+it('exposes the ingest route by default', function () {
+    expect(app('router')->getRoutes()->hasNamedRoute('trail.api.ingest'))->toBeTrue();
+});

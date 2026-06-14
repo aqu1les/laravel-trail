@@ -7,6 +7,7 @@ namespace Trail\Trail;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\EventQuery;
 use Trail\Trail\Support\FunnelReport;
@@ -75,6 +76,30 @@ class Trail
         $callback = static::$ingestUsing;
 
         return $callback !== null ? (bool) $callback($request) : true;
+    }
+
+    /**
+     * Register Trail's dashboard + API routes.
+     *
+     * The service provider calls this by default. Consumers who set
+     * trail.register_routes = false call it themselves inside a custom group to
+     * control prefix, middleware, and domain. Honors api.enabled / browser.enabled
+     * and the view/ingest gates.
+     *
+     * @param  array{prefix?: string, middleware?: array<int, string>|string, domain?: string|null}  $options
+     */
+    public static function routes(array $options = []): void
+    {
+        $config = app('config');
+
+        Route::group([
+            'prefix' => $options['prefix'] ?? $config->get('trail.path', 'trail'),
+            'middleware' => $options['middleware'] ?? $config->get('trail.middleware', ['web']),
+            'domain' => $options['domain'] ?? $config->get('trail.domain'),
+            'as' => 'trail.',
+        ], function (): void {
+            require __DIR__.'/../routes/web.php';
+        });
     }
 
     public function newPendingEvent(): PendingEvent
