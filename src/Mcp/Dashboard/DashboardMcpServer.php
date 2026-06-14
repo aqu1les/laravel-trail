@@ -9,6 +9,7 @@ use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 use Trail\Trail\Mcp\Dashboard\Tools\CatalogTool;
+use Trail\Trail\Mcp\Dashboard\Tools\MetricsTool;
 
 #[Name('Trail Dashboard')]
 #[Version('1.0.0')]
@@ -20,6 +21,7 @@ class DashboardMcpServer extends Server
      */
     protected array $tools = [
         CatalogTool::class,
+        MetricsTool::class,
     ];
 
     /**

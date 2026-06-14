@@ -7,6 +7,7 @@ namespace Trail\Trail\Tests;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Trail\Trail\TrailServiceProvider;
@@ -26,6 +27,7 @@ class TestCase extends Orchestra
     {
         return [
             LivewireServiceProvider::class,
+            McpServiceProvider::class,
             TrailServiceProvider::class,
         ];
     }
