@@ -1,0 +1,3 @@
+[test]
+# Trail ships a PHP package; the only JS tests live under tests/js.
+root = "tests/js"

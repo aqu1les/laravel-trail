@@ -14,9 +14,13 @@ class Authorize
     /**
      * @param  Closure(Request): Response  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $ability = 'view'): Response
     {
-        abort_unless(Trail::check($request), 403);
+        $allowed = $ability === 'ingest'
+            ? Trail::canIngest($request)
+            : Trail::check($request);
+
+        abort_unless($allowed, 403);
 
         return $next($request);
     }

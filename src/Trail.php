@@ -7,6 +7,7 @@ namespace Trail\Trail;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\EventQuery;
 use Trail\Trail\Support\FunnelReport;
@@ -19,6 +20,13 @@ class Trail
      * @var (Closure(Request): bool)|null
      */
     protected static ?Closure $authUsing = null;
+
+    /**
+     * The callback that authorizes browser event ingestion.
+     *
+     * @var (Closure(Request): bool)|null
+     */
+    protected static ?Closure $ingestUsing = null;
 
     public function __construct(protected RecorderManager $recorders) {}
 
@@ -44,6 +52,54 @@ class Trail
         return $callback !== null
             ? (bool) $callback($request)
             : app()->environment('local');
+    }
+
+    /**
+     * Register the callback used to authorize browser event ingestion.
+     *
+     * @param  (Closure(Request): bool)|null  $callback
+     */
+    public static function ingestUsing(?Closure $callback): void
+    {
+        static::$ingestUsing = $callback;
+    }
+
+    /**
+     * Determine if the given request may emit browser events.
+     *
+     * Defaults to allow (including anonymous), since that is what makes
+     * Amplitude-style capture work out of the box. Write protection is CSRF +
+     * same-origin + rate limit + server-side subject resolution.
+     */
+    public static function canIngest(Request $request): bool
+    {
+        $callback = static::$ingestUsing;
+
+        return $callback !== null ? (bool) $callback($request) : true;
+    }
+
+    /**
+     * Register Trail's dashboard + API routes.
+     *
+     * The service provider calls this by default. Consumers who set
+     * trail.register_routes = false call it themselves inside a custom group to
+     * control prefix, middleware, and domain. Honors api.enabled / browser.enabled
+     * and the view/ingest gates.
+     *
+     * @param  array{prefix?: string, middleware?: array<int, string>|string, domain?: string|null}  $options
+     */
+    public static function routes(array $options = []): void
+    {
+        $config = app('config');
+
+        Route::group([
+            'prefix' => $options['prefix'] ?? $config->get('trail.path', 'trail'),
+            'middleware' => $options['middleware'] ?? $config->get('trail.middleware', ['web']),
+            'domain' => $options['domain'] ?? $config->get('trail.domain'),
+            'as' => 'trail.',
+        ], function (): void {
+            require __DIR__.'/../routes/web.php';
+        });
     }
 
     public function newPendingEvent(): PendingEvent
