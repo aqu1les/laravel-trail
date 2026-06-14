@@ -85,3 +85,41 @@ it('includes _token in the beacon payload', async () => {
 
   client.destroy();
 });
+
+it('keeps events buffered after a failed fetch and retries next flush', async () => {
+  env = installFakeEnv({ fetchOk: false, fetchStatus: 500 });
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0 });
+  client.track('retry.me');
+
+  await client.flush();
+  expect(env.fetchMock).toHaveBeenCalledTimes(1);
+
+  // Now make fetch succeed and flush again - the event should still be there.
+  env.fetchMock.mockResolvedValue({ ok: true, status: 202 } as Response);
+  await client.flush();
+
+  const [, init] = env.fetchMock.mock.calls[1] as [string, RequestInit];
+  const body = JSON.parse(init.body as string);
+  expect(body.events[0].name).toBe('retry.me');
+
+  client.destroy();
+});
+
+it('drops the oldest events beyond maxBufferSize', async () => {
+  env = installFakeEnv({ fetchOk: false });
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0, maxBufferSize: 3 });
+  for (let i = 0; i < 5; i++) client.track('e' + i);
+
+  await client.flush(); // fails, re-queues, capped at 3
+
+  env.fetchMock.mockResolvedValue({ ok: true, status: 202 } as Response);
+  await client.flush();
+
+  const [, init] = env.fetchMock.mock.calls[1] as [string, RequestInit];
+  const names = JSON.parse(init.body as string).events.map((e: { name: string }) => e.name);
+  expect(names).toEqual(['e2', 'e3', 'e4']);
+
+  client.destroy();
+});
