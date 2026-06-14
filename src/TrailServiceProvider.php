@@ -9,6 +9,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Contracts\Redis\Factory as Redis;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Trail\Trail\Console\AggregateCommand;
@@ -90,6 +91,36 @@ class TrailServiceProvider extends ServiceProvider
         $this->registerSchedule();
         $this->registerIngestFlush();
         $this->registerPageViewTracking();
+        $this->registerDashboardMcp();
+    }
+
+    /**
+     * Conditionally boot the Dashboard MCP sub-provider.
+     *
+     * Off by default. Boots only when explicitly enabled and the optional
+     * laravel/mcp package is installed; otherwise logs a one-time hint.
+     */
+    private function registerDashboardMcp(): void
+    {
+        if (! config('trail.mcp.dashboard.enabled', false)) {
+            return;
+        }
+
+        if (! $this->mcpServerAvailable()) {
+            Log::warning('Trail: trail.mcp.dashboard.enabled is true but laravel/mcp is not installed. Run `composer require laravel/mcp` to use the Dashboard MCP, or set TRAIL_MCP_DASHBOARD=false.');
+
+            return;
+        }
+
+        $this->app->register(\Trail\Trail\Mcp\Dashboard\DashboardMcpServiceProvider::class);
+    }
+
+    /**
+     * Whether the optional laravel/mcp package is installed. Seam for testing.
+     */
+    protected function mcpServerAvailable(): bool
+    {
+        return class_exists(\Laravel\Mcp\Server::class);
     }
 
     /**
