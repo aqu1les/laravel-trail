@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail;
 
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Trail\Trail\Contracts\ContextCaptureContract;
@@ -22,6 +23,8 @@ class PendingEvent
     protected array $context = [];
 
     protected ?string $recorder = null;
+
+    protected ?DateTimeInterface $occurredAt = null;
 
     public function __construct(protected RecorderManager $recorders) {}
 
@@ -44,6 +47,13 @@ class PendingEvent
     public function withSession(string $sessionId): static
     {
         $this->sessionId = $sessionId;
+
+        return $this;
+    }
+
+    public function at(?DateTimeInterface $time): static
+    {
+        $this->occurredAt = $time;
 
         return $this;
     }
@@ -79,6 +89,13 @@ class PendingEvent
         return $this;
     }
 
+    public function usingRecorder(?string $recorder): static
+    {
+        $this->recorder = $recorder;
+
+        return $this;
+    }
+
     /**
      * @param  array<string, mixed>  $properties
      */
@@ -98,7 +115,7 @@ class PendingEvent
             'properties' => $properties ?: null,
             'context' => $context !== [] ? $context : null,
             'value' => $value,
-            'occurred_at' => Carbon::now(),
+            'occurred_at' => $this->occurredAt !== null ? Carbon::instance($this->occurredAt) : Carbon::now(),
         ]);
     }
 

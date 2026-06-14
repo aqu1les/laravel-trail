@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Carbon;
+use Trail\Trail\Contracts\EventBuffer;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Tests\Fixtures\User;
@@ -136,4 +138,39 @@ it('resolves an invokable class-string resolver from the container', function ()
     Trail::track('build.shipped');
 
     expect(TrailEvent::firstWhere('name', 'build.shipped')->subject->is($user))->toBeTrue();
+});
+
+it('records a custom occurred_at via at()', function () {
+    $when = Carbon::parse('2026-01-02 03:04:05');
+
+    Trail::anonymous()->at($when)->track('custom.time');
+
+    expect(TrailEvent::firstWhere('name', 'custom.time')->occurred_at->toDateTimeString())
+        ->toBe('2026-01-02 03:04:05');
+});
+
+it('falls back to now() when at() is given null', function () {
+    Trail::anonymous()->at(null)->track('now.time');
+
+    expect(TrailEvent::firstWhere('name', 'now.time')->occurred_at)->not->toBeNull();
+});
+
+it('routes through a named recorder via usingRecorder()', function () {
+    config()->set('trail.ingest.buffer', 'memory');
+    config()->set('trail.ingest.flush_at', 100);
+    app()->forgetInstance(EventBuffer::class);
+
+    Trail::anonymous()->usingRecorder('ingest')->track('buffered.event');
+
+    expect(TrailEvent::count())->toBe(0);
+
+    app(EventBuffer::class)->flush();
+
+    expect(TrailEvent::firstWhere('name', 'buffered.event'))->not->toBeNull();
+});
+
+it('uses the global recorder when usingRecorder() gets null', function () {
+    Trail::anonymous()->usingRecorder(null)->track('global.recorder');
+
+    expect(TrailEvent::firstWhere('name', 'global.recorder'))->not->toBeNull();
 });

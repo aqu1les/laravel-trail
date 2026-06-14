@@ -83,6 +83,41 @@ return [
     'middleware' => ['web'],
 
     /*
+    |--------------------------------------------------------------------------
+    | Route registration
+    |--------------------------------------------------------------------------
+    | Set false to take over route registration yourself by calling
+    | Trail::routes() inside your own route group (custom prefix/middleware/domain).
+    */
+    'register_routes' => env('TRAIL_ROUTES', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | JSON / browser API
+    |--------------------------------------------------------------------------
+    | api.enabled      - master switch for the read + write API routes.
+    | browser.enabled  - finer gate for just the browser write endpoint
+    |                    (POST /api/ingest). Disable to keep the read API but
+    |                    stop browser writes.
+    | browser.recorder - recorder the ingest endpoint routes events through.
+    |                    null = the global trail.recorder. Recommended: 'ingest'.
+    | browser.max_batch      - max events accepted per request.
+    | browser.rate_limit     - "attempts,minutes" per user / session / IP.
+    | browser.allowed_events - optional event-name allowlist (null = allow any).
+    */
+    'api' => [
+        'enabled' => env('TRAIL_API', true),
+    ],
+
+    'browser' => [
+        'enabled' => env('TRAIL_BROWSER', true),
+        'recorder' => null,
+        'max_batch' => 50,
+        'rate_limit' => '120,1',
+        'allowed_events' => null,
+    ],
+
+    /*
     | Compiled dashboard stylesheet (production).
     |
     | Trail's dashboard renders with hand-written component CSS (served at

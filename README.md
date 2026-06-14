@@ -195,6 +195,61 @@ Recorders go through a Laravel `Manager`, so adding your own is a one-liner:
 app(\Trail\Trail\RecorderManager::class)->extend('bigquery', fn ($app) => new BigQueryRecorder());
 ```
 
+## Browser / SPA tracking
+
+Capture events straight from the browser, Amplitude-style. A plain `composer require`
+already ships the ingestion endpoint (`POST /trail/api/ingest`); a publishable
+TypeScript client gives you an ergonomic, batched way to send events:
+
+```bash
+php artisan vendor:publish --tag=trail-js
+```
+
+```ts
+import { createTrail } from '@/vendor/trail';
+
+const client = createTrail();
+client.track('chat.message_sent', { thread_id: 42 });
+```
+
+The client never spams the network or floods your queue: it buffers in memory and
+flushes on a size threshold, on an interval, and on page-hide via `navigator.sendBeacon`,
+so the last events survive a tab close. CSRF is handled for you (the `X-XSRF-TOKEN`
+header on normal flushes, a `_token` field in the beacon body on unload), and a
+failed flush keeps its events for the next attempt within a bounded buffer.
+
+The server owns identity and context: it resolves the subject from your auth guard
+(anonymous visitors are tied together by a stable client `session_id`) and captures
+url, referrer, utm, and an anonymized IP per your privacy config. The browser only
+sends the event name, your properties, an optional value, and a timestamp. Keep PII
+out of `properties` - they are developer-controlled and stored as-is.
+
+### Read vs write access
+
+Reading data and emitting events are separate concerns, so they have separate gates:
+
+```php
+use Trail\Trail\Trail;
+
+Trail::auth(fn ($request) => $request->user()?->isAdmin() ?? false); // view dashboard + read API
+Trail::ingestUsing(fn ($request) => $request->user() !== null);      // optional: restrict who can emit
+```
+
+`Trail::auth` is the view gate (default: local environment only). `Trail::ingestUsing`
+is the write gate, and it defaults to allow (including anonymous) so capture works out
+of the box; writes are still protected by CSRF, same-origin, rate limiting, and
+server-side subject resolution. Tighten it whenever you need to.
+
+### Page views: pick one source
+
+If you already enable the server-side `page_views` auto-capture, do not also turn on
+the client's `autoPageViews` - Inertia visits are real Laravel requests and would be
+counted twice. Pick server-side or client-side, not both.
+
+See the [Browser / SPA tracking](https://github.com/aqu1les/laravel-trail/wiki/Browser-Tracking)
+wiki page for the full config (`api.enabled`, `browser.*`, `register_routes`), route
+customization with `Trail::routes()`, and the Amplitude migration note.
+
 ## The dashboard
 
 Trail ships an embedded dashboard at `/trail` (configurable via `trail.path`), in the spirit of Pulse and Telescope - dense, dark by default, server-rendered with Blade + Livewire. No build step and no `npm`: the styles are plain CSS driven by design tokens.

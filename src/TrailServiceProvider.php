@@ -10,7 +10,6 @@ use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Mcp\Server;
 use Trail\Trail\Console\AggregateCommand;
@@ -18,7 +17,6 @@ use Trail\Trail\Console\InstallCommand;
 use Trail\Trail\Console\PruneCommand;
 use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Contracts\EventBuffer;
-use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
 use Trail\Trail\Mcp\Dashboard\DashboardMcpServiceProvider;
 use Trail\Trail\Support\ConfigMerge;
@@ -199,13 +197,11 @@ class TrailServiceProvider extends ServiceProvider
      */
     private function registerRoutes(): void
     {
-        Route::group([
-            'prefix' => config('trail.path', 'trail'),
-            'middleware' => array_merge((array) config('trail.middleware', ['web']), [Authorize::class]),
-            'as' => 'trail.',
-        ], function () {
-            $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
-        });
+        if (! config('trail.register_routes', true)) {
+            return;
+        }
+
+        Trail::routes();
     }
 
     /**
@@ -250,6 +246,13 @@ class TrailServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../resources/skills/trail/SKILL.md' => base_path('.claude/skills/trail/SKILL.md'),
         ], 'trail-skill');
+
+        // Publishable TypeScript browser client. Consumers run
+        // `php artisan vendor:publish --tag=trail-js` and import from
+        // resources/js/vendor/trail. Re-run with --force after a package upgrade.
+        $this->publishes([
+            __DIR__.'/../resources/js/trail' => resource_path('js/vendor/trail'),
+        ], 'trail-js');
     }
 
     /**
