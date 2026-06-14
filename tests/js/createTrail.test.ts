@@ -36,3 +36,52 @@ it('flushes via fetch when the buffer reaches flushAt', async () => {
 
   client.destroy();
 });
+
+it('sends a beacon on pagehide', () => {
+  env = installFakeEnv();
+  env.cookies['XSRF-TOKEN'] = encodeURIComponent('beacon-tok');
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0 });
+  client.track('leaving.page');
+
+  env.pagehideHandlers.forEach((h) => h());
+
+  expect(env.beaconMock).toHaveBeenCalledTimes(1);
+
+  const [url, blob] = env.beaconMock.mock.calls[0] as [string, Blob];
+  expect(url).toBe('/trail/api/ingest');
+  expect(blob).toBeInstanceOf(Blob);
+
+  client.destroy();
+});
+
+it('beacons on visibilitychange to hidden', () => {
+  env = installFakeEnv();
+  const fakeDoc = (globalThis as Record<string, unknown>).document as { visibilityState: string };
+  fakeDoc.visibilityState = 'hidden';
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0 });
+  client.track('hidden.event');
+
+  env.visibilityHandlers.forEach((h) => h());
+
+  expect(env.beaconMock).toHaveBeenCalledTimes(1);
+  client.destroy();
+});
+
+it('includes _token in the beacon payload', async () => {
+  env = installFakeEnv();
+  env.cookies['XSRF-TOKEN'] = encodeURIComponent('payload-tok');
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0 });
+  client.track('bye');
+  env.pagehideHandlers.forEach((h) => h());
+
+  const [, blob] = env.beaconMock.mock.calls[0] as [string, Blob];
+  const parsed = JSON.parse(await blob.text());
+
+  expect(parsed._token).toBe('payload-tok');
+  expect(parsed.events[0].name).toBe('bye');
+
+  client.destroy();
+});
