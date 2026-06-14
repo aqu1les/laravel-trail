@@ -123,3 +123,28 @@ it('drops the oldest events beyond maxBufferSize', async () => {
 
   client.destroy();
 });
+
+it('emits a page-view on Inertia navigate when autoPageViews is on', () => {
+  env = installFakeEnv();
+
+  let navigateCb: (() => void) | null = null;
+  const router = { on: (_: string, cb: () => void) => { navigateCb = cb; } };
+
+  const client = createTrail({
+    flushAt: 99,
+    flushInterval: 0,
+    autoPageViews: true,
+    pageViewEvent: 'page.viewed',
+    router,
+  });
+
+  expect(navigateCb).not.toBeNull();
+  navigateCb!();
+
+  // The page-view is buffered; force it out and inspect.
+  env.pagehideHandlers.forEach((h) => h());
+  const [, blob] = env.beaconMock.mock.calls[0] as [string, Blob];
+  expect(blob).toBeInstanceOf(Blob);
+
+  client.destroy();
+});
