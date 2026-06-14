@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Support;
 
+use Illuminate\Support\Carbon;
 use Trail\Trail\Models\TrailEvent;
 
 class FunnelReport
@@ -12,12 +13,13 @@ class FunnelReport
      * Compute conversion through an ordered sequence of events.
      *
      * Membership-based: each step counts the subjects who completed it and
-     * every preceding step (in any temporal order).
+     * every preceding step (in any temporal order). When both $from and $to
+     * are given, only events inside that window are counted.
      *
      * @param  list<string>  $steps
      * @return array{steps: list<array{name: string, count: int, rate: float, drop_off: int}>, overall_conversion: float}
      */
-    public function build(array $steps): array
+    public function build(array $steps, ?Carbon $from = null, ?Carbon $to = null): array
     {
         /** @var list<string>|null $qualified */
         $qualified = null;
@@ -26,7 +28,7 @@ class FunnelReport
         $previousCount = 0;
 
         foreach ($steps as $index => $name) {
-            $identities = $this->subjectsForEvent($name);
+            $identities = $this->subjectsForEvent($name, $from, $to);
 
             $qualified = $qualified === null
                 ? $identities
@@ -59,10 +61,11 @@ class FunnelReport
      *
      * @return array<int, string>
      */
-    private function subjectsForEvent(string $name): array
+    private function subjectsForEvent(string $name, ?Carbon $from = null, ?Carbon $to = null): array
     {
         return TrailEvent::query()
             ->where('name', $name)
+            ->when($from !== null && $to !== null, fn ($query) => $query->whereBetween('occurred_at', [$from, $to]))
             ->whereNotNull('subject_id')
             ->get(['subject_type', 'subject_id'])
             ->map(fn (TrailEvent $event): string => $event->subject_type.'|'.$event->subject_id)
