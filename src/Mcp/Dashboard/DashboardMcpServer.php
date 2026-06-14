@@ -8,6 +8,8 @@ use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
+use Laravel\Mcp\Server\Prompt;
+use Laravel\Mcp\Server\Tool;
 use Trail\Trail\Mcp\Dashboard\Prompts\AnalysisPrompt;
 use Trail\Trail\Mcp\Dashboard\Tools\CatalogTool;
 use Trail\Trail\Mcp\Dashboard\Tools\EventsTool;
@@ -20,7 +22,7 @@ use Trail\Trail\Mcp\Dashboard\Tools\MetricsTool;
 class DashboardMcpServer extends Server
 {
     /**
-     * @var array<int, class-string<\Laravel\Mcp\Server\Tool>>
+     * @var array<int, class-string<Tool>>
      */
     protected array $tools = [
         CatalogTool::class,
@@ -30,7 +32,7 @@ class DashboardMcpServer extends Server
     ];
 
     /**
-     * @var array<int, class-string<\Laravel\Mcp\Server\Prompt>>
+     * @var array<int, class-string<Prompt>>
      */
     protected array $prompts = [
         AnalysisPrompt::class,

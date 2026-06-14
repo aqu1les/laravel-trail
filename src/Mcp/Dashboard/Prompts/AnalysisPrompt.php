@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Prompt;
 class AnalysisPrompt extends Prompt
 {
     /**
-     * @return array<int, \Laravel\Mcp\Response>
+     * @return array<int, Response>
      */
     public function handle(Request $request): array
     {

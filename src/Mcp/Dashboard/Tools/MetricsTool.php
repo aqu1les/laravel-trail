@@ -6,6 +6,7 @@ namespace Trail\Trail\Mcp\Dashboard\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Request as HttpRequest;
+use Illuminate\JsonSchema\Types\Type;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Laravel\Mcp\Request;
@@ -107,7 +108,7 @@ class MetricsTool extends Tool
     }
 
     /**
-     * @return array<string, \Illuminate\JsonSchema\Types\Type>
+     * @return array<string, Type>
      */
     public function schema(JsonSchema $schema): array
     {

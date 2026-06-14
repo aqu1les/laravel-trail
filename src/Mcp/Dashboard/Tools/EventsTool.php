@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Trail\Trail\Mcp\Dashboard\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\JsonSchema\Types\Type;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
@@ -77,7 +78,7 @@ class EventsTool extends Tool
         $row = [
             'name' => $event->name,
             'value' => $event->value,
-            'occurred_at' => $event->occurred_at?->toIso8601String(),
+            'occurred_at' => $event->occurred_at->toIso8601String(),
             'subject_type' => $event->subject_type,
             'subject_id' => $event->subject_id,
             'session_id' => $event->session_id,
@@ -92,7 +93,7 @@ class EventsTool extends Tool
     }
 
     /**
-     * @return array<string, \Illuminate\JsonSchema\Types\Type>
+     * @return array<string, Type>
      */
     public function schema(JsonSchema $schema): array
     {

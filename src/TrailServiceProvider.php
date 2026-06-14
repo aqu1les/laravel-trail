@@ -12,6 +12,7 @@ use Illuminate\Contracts\Redis\Factory as Redis;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Mcp\Server;
 use Trail\Trail\Console\AggregateCommand;
 use Trail\Trail\Console\InstallCommand;
 use Trail\Trail\Console\PruneCommand;
@@ -19,6 +20,7 @@ use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Contracts\EventBuffer;
 use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Http\Middleware\TrackPageView;
+use Trail\Trail\Mcp\Dashboard\DashboardMcpServiceProvider;
 use Trail\Trail\Support\ConfigMerge;
 use Trail\Trail\Support\ContextCapture;
 use Trail\Trail\Support\MemoryEventBuffer;
@@ -112,7 +114,7 @@ class TrailServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->app->register(\Trail\Trail\Mcp\Dashboard\DashboardMcpServiceProvider::class);
+        $this->app->register(DashboardMcpServiceProvider::class);
     }
 
     /**
@@ -120,7 +122,7 @@ class TrailServiceProvider extends ServiceProvider
      */
     protected function mcpServerAvailable(): bool
     {
-        return class_exists(\Laravel\Mcp\Server::class);
+        return class_exists(Server::class);
     }
 
     /**
