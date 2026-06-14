@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.1.0 - 2026-06-14
+
+### What's Changed
+
+* Captura de eventos do navegador (estilo Amplitude) by @aqu1les in https://github.com/aqu1les/laravel-trail/pull/3
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.0.3...v1.1.0
+
 ## Unreleased
 
 ### Added
