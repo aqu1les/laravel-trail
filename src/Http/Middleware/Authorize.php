@@ -14,10 +14,18 @@ class Authorize
     /**
      * @param  Closure(Request): Response  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, ?string $ability = null): Response
     {
-        abort_unless(Trail::check($request), 403);
+        abort_unless($this->allows($ability, $request), 403);
 
         return $next($request);
+    }
+
+    private function allows(?string $ability, Request $request): bool
+    {
+        return match ($ability) {
+            'mcp' => Trail::canAccessMcp($request),
+            default => Trail::check($request),
+        };
     }
 }

@@ -46,6 +46,38 @@ class Trail
             : app()->environment('local');
     }
 
+    /**
+     * The callback that authorizes access to the Dashboard MCP server.
+     *
+     * @var (Closure(Request): bool)|null
+     */
+    protected static ?Closure $mcpUsing = null;
+
+    /**
+     * Register the callback used to authorize Dashboard MCP access.
+     *
+     * @param  (Closure(Request): bool)|null  $callback
+     */
+    public static function mcpUsing(?Closure $callback): void
+    {
+        static::$mcpUsing = $callback;
+    }
+
+    /**
+     * Determine if the given request may access the Dashboard MCP server.
+     *
+     * Stricter default than the dashboard: denies outside the local
+     * environment until the owner registers an mcpUsing() callback.
+     */
+    public static function canAccessMcp(Request $request): bool
+    {
+        $callback = static::$mcpUsing;
+
+        return $callback !== null
+            ? (bool) $callback($request)
+            : app()->environment('local');
+    }
+
     public function newPendingEvent(): PendingEvent
     {
         return new PendingEvent($this->recorders);
