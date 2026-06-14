@@ -20,6 +20,13 @@ class Trail
      */
     protected static ?Closure $authUsing = null;
 
+    /**
+     * The callback that authorizes browser event ingestion.
+     *
+     * @var (Closure(Request): bool)|null
+     */
+    protected static ?Closure $ingestUsing = null;
+
     public function __construct(protected RecorderManager $recorders) {}
 
     /**
@@ -44,6 +51,30 @@ class Trail
         return $callback !== null
             ? (bool) $callback($request)
             : app()->environment('local');
+    }
+
+    /**
+     * Register the callback used to authorize browser event ingestion.
+     *
+     * @param  (Closure(Request): bool)|null  $callback
+     */
+    public static function ingestUsing(?Closure $callback): void
+    {
+        static::$ingestUsing = $callback;
+    }
+
+    /**
+     * Determine if the given request may emit browser events.
+     *
+     * Defaults to allow (including anonymous), since that is what makes
+     * Amplitude-style capture work out of the box. Write protection is CSRF +
+     * same-origin + rate limit + server-side subject resolution.
+     */
+    public static function canIngest(Request $request): bool
+    {
+        $callback = static::$ingestUsing;
+
+        return $callback !== null ? (bool) $callback($request) : true;
     }
 
     public function newPendingEvent(): PendingEvent
