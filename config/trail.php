@@ -210,7 +210,7 @@ return [
     'mcp' => [
         'dashboard' => [
             'enabled' => env('TRAIL_MCP_DASHBOARD', false),
-            'path' => env('TRAIL_MCP_DASHBOARD_PATH', 'trail-mcp'),
+            'path' => env('TRAIL_MCP_DASHBOARD_PATH', 'mcp/trail'),
             'middleware' => [], // stateless; add throttle/etc. as needed
             'token' => env('TRAIL_MCP_DASHBOARD_TOKEN'),
             'expose_properties' => false, // master switch for include_properties

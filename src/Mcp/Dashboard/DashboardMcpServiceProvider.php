@@ -12,7 +12,7 @@ class DashboardMcpServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
-        $path = (string) config('trail.mcp.dashboard.path', 'trail-mcp');
+        $path = (string) config('trail.mcp.dashboard.path', 'mcp/trail');
 
         $middleware = array_merge(
             (array) config('trail.mcp.dashboard.middleware', []),

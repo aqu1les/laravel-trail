@@ -9,7 +9,7 @@ beforeEach(function () {
     // The app is already booted, so registering the sub-provider here runs its
     // boot() immediately and mounts the MCP route on the router.
     config()->set('trail.mcp.dashboard.enabled', true);
-    config()->set('trail.mcp.dashboard.path', 'trail-mcp');
+    config()->set('trail.mcp.dashboard.path', 'mcp/trail');
     config()->set('trail.mcp.dashboard.token', 'secret-token');
 
     $this->app->register(DashboardMcpServiceProvider::class);
@@ -21,7 +21,7 @@ afterEach(function () {
 
 it('denies the MCP endpoint by default in a non-local environment', function () {
     // testbench runs as the "testing" environment, so the default gate denies.
-    $this->postJson('/trail-mcp')->assertForbidden();
+    $this->postJson('/mcp/trail')->assertForbidden();
 });
 
 it('passes the gate when a registered token matches', function () {
@@ -30,7 +30,7 @@ it('passes the gate when a registered token matches', function () {
         (string) $request->bearerToken(),
     ));
 
-    $response = $this->postJson('/trail-mcp', [], [
+    $response = $this->postJson('/mcp/trail', [], [
         'Authorization' => 'Bearer secret-token',
     ]);
 
@@ -44,7 +44,7 @@ it('rejects a wrong token with 403', function () {
         (string) $request->bearerToken(),
     ));
 
-    $this->postJson('/trail-mcp', [], [
+    $this->postJson('/mcp/trail', [], [
         'Authorization' => 'Bearer wrong',
     ])->assertForbidden();
 });
@@ -52,7 +52,7 @@ it('rejects a wrong token with 403', function () {
 it('serves the MCP route on a stateless pipeline (no CSRF 419)', function () {
     Trail::mcpUsing(fn () => true);
 
-    $response = $this->post('/trail-mcp', [], [
+    $response = $this->post('/mcp/trail', [], [
         'Authorization' => 'Bearer secret-token',
     ]);
 
