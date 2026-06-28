@@ -36,6 +36,10 @@ class TestCase extends Orchestra
     {
         config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
         config()->set('queue.default', 'sync');
+        // Tests must not depend on a database cache table. Laravel 11+ defaults
+        // CACHE_STORE to "database"; the array store keeps the suite self-contained
+        // (the ingest rate limiter is cache-backed).
+        config()->set('cache.default', 'array');
         config()->set('database.default', 'testing');
         config()->set('database.connections.testing', [
             'driver' => 'sqlite',
