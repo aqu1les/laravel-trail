@@ -16,12 +16,17 @@ class Authorize
      */
     public function handle(Request $request, Closure $next, string $ability = 'view'): Response
     {
-        $allowed = $ability === 'ingest'
-            ? Trail::canIngest($request)
-            : Trail::check($request);
-
-        abort_unless($allowed, 403);
+        abort_unless($this->allows($ability, $request), 403);
 
         return $next($request);
+    }
+
+    private function allows(string $ability, Request $request): bool
+    {
+        return match ($ability) {
+            'ingest' => Trail::canIngest($request),
+            'mcp' => Trail::canAccessMcp($request),
+            default => Trail::check($request),
+        };
     }
 }

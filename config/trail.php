@@ -199,4 +199,24 @@ return [
         'prune' => true,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | MCP servers
+    |--------------------------------------------------------------------------
+    | Owner-facing, read-only analytics exposed to external MCP clients
+    | (Claude Desktop, Cursor, Claude Code). Off by default. Requires
+    | `composer require laravel/mcp`. See the Dashboard MCP docs.
+    */
+    'mcp' => [
+        'dashboard' => [
+            'enabled' => env('TRAIL_MCP_DASHBOARD', false),
+            'path' => env('TRAIL_MCP_DASHBOARD_PATH', 'mcp/trail'),
+            'middleware' => [], // stateless; add throttle/etc. as needed
+            'token' => env('TRAIL_MCP_DASHBOARD_TOKEN'),
+            'expose_properties' => false, // master switch for include_properties
+            'events_max' => 200, // hard cap for trail_events.limit
+        ],
+        // future sibling: 'capture' => [ 'enabled' => false, ... ],
+    ],
+
 ];
