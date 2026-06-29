@@ -97,6 +97,22 @@ use Trail\Trail\Trail;
 Trail::auth(fn ($request) => $request->user()?->isAdmin() ?? false);
 ```
 
+## Dashboard MCP
+
+An optional, owner-facing MCP server exposes the read data as curated, read-only tools for an external
+MCP client (Claude Code, Claude Desktop, Cursor). It is off by default and needs `composer require
+laravel/mcp`. Enable with `TRAIL_MCP_DASHBOARD=true` and a `TRAIL_MCP_DASHBOARD_TOKEN`; it mounts at
+`/mcp/trail`. It has its own gate (`Trail::mcpUsing(...)`), which denies everything outside `local` by
+default. Connect Claude Code with one command:
+
+```bash
+claude mcp add --transport http trail https://your-app.com/mcp/trail \
+  --header "Authorization: Bearer your-long-random-token"
+```
+
+Tools: `trail_catalog`, `trail_metrics`, `trail_funnel`, `trail_events`, plus the `trail_analysis`
+prompt. Event `properties`/`context` stay hidden unless `trail.mcp.dashboard.expose_properties` is on.
+
 ## Maintenance commands
 
 - `trail:install` - publish config, migrations, assets.

@@ -370,7 +370,15 @@ Trail::mcpUsing(fn ($request) => hash_equals(
 ```
 
 The server is mounted at `/mcp/trail` (configurable) on a stateless pipeline,
-independent of the dashboard and JSON API gates. Tools: `trail_catalog`,
+independent of the dashboard and JSON API gates. Connect Claude Code with one
+command:
+
+```bash
+claude mcp add --transport http trail https://your-app.com/mcp/trail \
+  --header "Authorization: Bearer your-long-random-token"
+```
+
+Tools: `trail_catalog`,
 `trail_metrics`, `trail_funnel`, `trail_events`, plus the `trail_analysis`
 prompt. Event `properties` and `context` are never exposed unless you opt in via
 `trail.mcp.dashboard.expose_properties`. See the wiki for the full guide.
