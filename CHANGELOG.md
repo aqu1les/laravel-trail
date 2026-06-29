@@ -2,6 +2,20 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.2.0 - 2026-06-29
+
+### What's Changed
+
+* chore(deps): bump stefanzweifel/git-auto-commit-action from 7 to 7.1.0 by @dependabot[bot] in https://github.com/aqu1les/laravel-trail/pull/6
+* chore(deps): bump actions/checkout from 6 to 7 by @dependabot[bot] in https://github.com/aqu1les/laravel-trail/pull/5
+* Dashboard MCP: análise read-only dos dados do Trail via MCP by @aqu1les in https://github.com/aqu1les/laravel-trail/pull/4
+
+### New Contributors
+
+* @dependabot[bot] made their first contribution in https://github.com/aqu1les/laravel-trail/pull/6
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.1.0...v1.2.0
+
 ## v1.1.0 - 2026-06-14
 
 ### What's Changed
