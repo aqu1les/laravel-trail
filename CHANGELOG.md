@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.2.1 - 2026-07-10
+
+### What's Changed
+
+* Corrige filtro de período da tela de Events e leva os filtros do dashboard para a URL by @aqu1les in https://github.com/aqu1les/laravel-trail/pull/7
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.2.0...v1.2.1
+
 ## v1.2.0 - 2026-06-29
 
 ### What's Changed
