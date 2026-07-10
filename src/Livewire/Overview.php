@@ -7,6 +7,7 @@ namespace Trail\Trail\Livewire;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
@@ -17,15 +18,26 @@ class Overview extends Component
 {
     use ResolvesEvents;
 
+    /** The ranges the segmented control offers, as URL-safe tokens. */
+    private const RANGES = ['hour', 'day', 'week'];
+
     public bool $demo = false;
 
-    public string $period = '7d';
-
-    public string $granularity = 'Dia';
+    /**
+     * Bucket size, which also fixes the window: hour = last 12h, day = last 7d,
+     * week = last 6 weeks.
+     */
+    #[Url(as: 'range')]
+    public string $granularity = 'day';
 
     public function mount(bool $demo = false): void
     {
         $this->demo = $demo;
+
+        // A hand-typed ?range= would otherwise leave every segment unlit.
+        if (! in_array($this->granularity, self::RANGES, true)) {
+            $this->granularity = 'day';
+        }
     }
 
     public function render(): View
@@ -96,8 +108,8 @@ class Overview extends Component
     {
         $now = Carbon::now();
         [$period, $n, $sub, $unit] = match ($this->granularity) {
-            'Hora' => ['hour', 12, 'subHours', 'hour'],
-            'Semana' => ['week', 6, 'subWeeks', 'week'],
+            'hour' => ['hour', 12, 'subHours', 'hour'],
+            'week' => ['week', 6, 'subWeeks', 'week'],
             default => ['day', 7, 'subDays', 'day'],
         };
         $since = (clone $now)->{$sub}($n - 1)->startOf($unit);
@@ -132,8 +144,8 @@ class Overview extends Component
     private function seriesLabel(Carbon $start, int $i): string
     {
         return match ($this->granularity) {
-            'Hora' => $start->format('H'),
-            'Semana' => $i === 0 ? 'Atual' : "S-{$i}",
+            'hour' => $start->format('H'),
+            'week' => $i === 0 ? 'Atual' : "S-{$i}",
             default => ucfirst($start->locale('pt_BR')->isoFormat('ddd')),
         };
     }
@@ -160,7 +172,7 @@ class Overview extends Component
         $now = Carbon::now();
 
         // Weeks roll up from a single daily aggregate (<= 42 rows).
-        if ($this->granularity === 'Semana') {
+        if ($this->granularity === 'week') {
             $weeks = 6;
             $since = (clone $now)->subWeeks($weeks - 1)->startOfWeek();
             $daily = $this->groupedCounts($since, 'day');
@@ -178,7 +190,7 @@ class Overview extends Component
             return [$labels, $counts, array_sum($counts)];
         }
 
-        [$unit, $n, $step, $fmt, $labelFn] = $this->granularity === 'Hora'
+        [$unit, $n, $step, $fmt, $labelFn] = $this->granularity === 'hour'
             ? ['hour', 12, 'subHours', 'Y-m-d H', fn (Carbon $d) => $d->format('H')]
             : ['day', 7, 'subDays', 'Y-m-d', fn (Carbon $d) => ucfirst($d->locale('pt_BR')->isoFormat('ddd'))];
 
@@ -272,9 +284,9 @@ class Overview extends Component
     private function demoData(): array
     {
         $datasets = [
-            'Hora' => ['labels' => ['00', '03', '06', '09', '12', '15', '18', '21', '23'], 'data' => [320, 180, 140, 520, 880, 760, 1020, 1240, 640], 'total' => '142k'],
-            'Dia' => ['labels' => ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'], 'data' => [148, 162, 139, 205, 243, 128, 176], 'total' => '1.24M'],
-            'Semana' => ['labels' => ['S-5', 'S-4', 'S-3', 'S-2', 'S-1', 'Atual'], 'data' => [820, 910, 760, 1080, 1190, 1320], 'total' => '5.9M'],
+            'hour' => ['labels' => ['00', '03', '06', '09', '12', '15', '18', '21', '23'], 'data' => [320, 180, 140, 520, 880, 760, 1020, 1240, 640], 'total' => '142k'],
+            'day' => ['labels' => ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'], 'data' => [148, 162, 139, 205, 243, 128, 176], 'total' => '1.24M'],
+            'week' => ['labels' => ['S-5', 'S-4', 'S-3', 'S-2', 'S-1', 'Atual'], 'data' => [820, 910, 760, 1080, 1190, 1320], 'total' => '5.9M'],
         ];
         $ds = $datasets[$this->granularity];
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Trail\Trail\Livewire;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
@@ -14,20 +16,30 @@ class Events extends Component
 {
     use ResolvesEvents;
 
+    /** The periods the segmented control offers, as URL-safe tokens. */
+    private const PERIODS = ['today', '7d', '30d'];
+
     /** When true the screen renders sample data instead of querying. */
     public bool $demo = false;
 
+    #[Url(as: 'q')]
     public string $search = '';
 
     /** @var list<string> */
+    #[Url(as: 'events')]
     public array $eventFilter = [];
 
+    /** Selection token: "subject_type|subject_id", same shape SubjectTimeline exposes. */
+    #[Url(as: 'actor')]
     public ?string $actorFilter = null;
 
-    public string $period = '7d';
+    /** Window token: one of self::PERIODS. */
+    #[Url]
+    public string $since = '7d';
 
     public bool $live = true;
 
+    #[Url(as: 'page_views')]
     public bool $showPageViews = false;
 
     public ?int $selectedId = null;
@@ -45,6 +57,11 @@ class Events extends Component
     public function mount(bool $demo = false): void
     {
         $this->demo = $demo;
+
+        // A hand-typed ?since= would otherwise leave every segment unlit.
+        if (! in_array($this->since, self::PERIODS, true)) {
+            $this->since = '7d';
+        }
 
         if ($this->demo) {
             $this->events = Sample::stream(50);
@@ -128,6 +145,16 @@ class Events extends Component
         $this->dispatch('drawer-open');
     }
 
+    /** Lower bound of the selected period window. */
+    private function sinceAt(): Carbon
+    {
+        return match ($this->since) {
+            'today' => now()->startOfDay(),
+            '30d' => now()->subDays(30),
+            default => now()->subDays(7),
+        };
+    }
+
     /** The event set backing this render - demo buffer or a real query. */
     private function sourceEvents(): array
     {
@@ -135,8 +162,9 @@ class Events extends Component
             return $this->events;
         }
 
-        // Trail::events() already orders newest-first; just cap and eager-load.
+        // Trail::events() already orders newest-first; window it, then cap and eager-load.
         return Trail::events()->toBuilder()
+            ->where('occurred_at', '>=', $this->sinceAt())
             ->with('subject')
             ->limit(200)
             ->get()

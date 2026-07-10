@@ -42,10 +42,10 @@ class SubjectTimeline extends Component
     public array $demoEvents = [];
 
     // Index mode filters and pagination (real mode, no actor selected).
-    #[Url]
+    #[Url(as: 'type_filter')]
     public string $typeFilter = '';
 
-    #[Url]
+    #[Url(as: 'q')]
     public string $indexSearch = '';
 
     #[Url]
