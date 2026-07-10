@@ -14,10 +14,24 @@ afterEach(fn () => Trail::auth(null));
 
 it('switches the chart granularity in demo mode', function () {
     Livewire::test(Overview::class, ['demo' => true])
-        ->assertSet('granularity', 'Dia')
+        ->assertSet('granularity', 'day')
         ->assertSee('1.24M')
-        ->set('granularity', 'Hora')
+        ->set('granularity', 'hour')
         ->assertSee('142k');
+});
+
+it('hydrates the chart range from the query string', function () {
+    Livewire::withQueryParams(['range' => 'week'])
+        ->test(Overview::class, ['demo' => true])
+        ->assertSet('granularity', 'week')
+        ->assertSee('5.9M');
+});
+
+it('falls back to the day range when the range token is unknown', function () {
+    Livewire::withQueryParams(['range' => 'xyz'])
+        ->test(Overview::class, ['demo' => true])
+        ->assertSet('granularity', 'day')
+        ->assertSee('1.24M');
 });
 
 it('builds sparkline geometry', function () {
@@ -34,8 +48,8 @@ it('aggregates the real series across granularities via SQL', function () {
 
     Livewire::test(Overview::class) // real mode
         ->assertSee('Eventos ao longo do tempo', false)
-        ->set('granularity', 'Hora')->assertSee('Eventos ao longo do tempo', false)
-        ->set('granularity', 'Semana')->assertSee('Eventos ao longo do tempo', false);
+        ->set('granularity', 'hour')->assertSee('Eventos ao longo do tempo', false)
+        ->set('granularity', 'week')->assertSee('Eventos ao longo do tempo', false);
 });
 
 it('counts actors with the same id but different type as two distinct unique subjects', function () {
@@ -57,7 +71,7 @@ it('serves the series and top events from rollups when available', function () {
         'sum_value' => null,
     ]);
 
-    Livewire::test(Overview::class) // real mode, default 'Dia' => period 'day'
+    Livewire::test(Overview::class) // real mode, default range 'day' => rollup period 'day'
         ->assertSee('rollup.only', false)
         ->assertSee('123', false);
 });

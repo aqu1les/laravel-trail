@@ -18,9 +18,9 @@
         <span>{{ $live ? 'Ao vivo' : 'Pausado' }}</span>
       </button>
       <div class="trail-segmented">
-        <button class="{{ $period === 'Hoje' ? 'is-active' : '' }}" wire:click="$set('period', 'Hoje')">Hoje</button>
-        <button class="{{ $period === '7d' ? 'is-active' : '' }}" wire:click="$set('period', '7d')">7d</button>
-        <button class="{{ $period === '30d' ? 'is-active' : '' }}" wire:click="$set('period', '30d')">30d</button>
+        <button class="{{ $since === 'today' ? 'is-active' : '' }}" wire:click="$set('since', 'today')">Hoje</button>
+        <button class="{{ $since === '7d' ? 'is-active' : '' }}" wire:click="$set('since', '7d')">7d</button>
+        <button class="{{ $since === '30d' ? 'is-active' : '' }}" wire:click="$set('since', '30d')">30d</button>
       </div>
       <button class="trail-btn trail-btn-secondary" wire:click="togglePageViews">
         <span>{{ $showPageViews ? 'Esconder page views' : 'Mostrar page views' }}</span>

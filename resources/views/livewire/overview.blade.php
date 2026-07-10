@@ -7,20 +7,6 @@
       <h1 class="text-[18px] font-semibold tracking-tight">Overview</h1>
       <span class="trail-badge" style="background:var(--trail-success-subtle);color:var(--trail-success)"><span class="trail-dot trail-dot-live"></span>tracking ativo</span>
     </div>
-    <div class="flex items-center gap-2.5">
-      <div class="trail-search" style="width:240px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input class="trail-input" placeholder="Buscar eventos, atores…">
-      </div>
-      <div class="trail-segmented">
-        <button class="{{ $period === 'Hoje' ? 'is-active' : '' }}" wire:click="$set('period', 'Hoje')">Hoje</button>
-        <button class="{{ $period === '7d' ? 'is-active' : '' }}" wire:click="$set('period', '7d')">7d</button>
-        <button class="{{ $period === '30d' ? 'is-active' : '' }}" wire:click="$set('period', '30d')">30d</button>
-      </div>
-      <button class="trail-btn trail-btn-secondary trail-btn-icon" title="Período custom">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-      </button>
-    </div>
   </header>
 
   <!-- Scroll content -->
@@ -70,9 +56,9 @@
           <span class="inline-flex items-center gap-1.5 text-xs" style="color:var(--trail-text-subtle)"><span style="width:8px;height:8px;border-radius:2px;background:var(--trail-accent);display:inline-block"></span>todos os eventos</span>
         </div>
         <div class="trail-segmented">
-          <button class="{{ $granularity === 'Hora' ? 'is-active' : '' }}" wire:click="$set('granularity', 'Hora')">Hora</button>
-          <button class="{{ $granularity === 'Dia' ? 'is-active' : '' }}" wire:click="$set('granularity', 'Dia')">Dia</button>
-          <button class="{{ $granularity === 'Semana' ? 'is-active' : '' }}" wire:click="$set('granularity', 'Semana')">Semana</button>
+          <button class="{{ $granularity === 'hour' ? 'is-active' : '' }}" wire:click="$set('granularity', 'hour')">Hora</button>
+          <button class="{{ $granularity === 'day' ? 'is-active' : '' }}" wire:click="$set('granularity', 'day')">Dia</button>
+          <button class="{{ $granularity === 'week' ? 'is-active' : '' }}" wire:click="$set('granularity', 'week')">Semana</button>
         </div>
       </div>
       <div class="trail-card-pad">

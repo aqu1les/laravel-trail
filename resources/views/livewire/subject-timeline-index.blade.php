@@ -24,12 +24,12 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="trail-menu trail-scroll" x-show="open" x-cloak @click="open = false" style="position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:160px">
-          <a class="trail-menu-item" aria-checked="{{ $typeFilter === '' ? 'true' : 'false' }}" href="{{ route('trail.timeline', array_filter(['indexSearch' => $indexSearch])) }}">
+          <a class="trail-menu-item" aria-checked="{{ $typeFilter === '' ? 'true' : 'false' }}" href="{{ route('trail.timeline', array_filter(['q' => $indexSearch])) }}">
             <span class="trail-menu-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>
             Todos os tipos
           </a>
           @foreach ($distinctTypes as $t)
-            <a class="trail-menu-item" aria-checked="{{ $typeFilter === $t['value'] ? 'true' : 'false' }}" href="{{ route('trail.timeline', array_filter(['typeFilter' => $t['value'], 'indexSearch' => $indexSearch])) }}">
+            <a class="trail-menu-item" aria-checked="{{ $typeFilter === $t['value'] ? 'true' : 'false' }}" href="{{ route('trail.timeline', array_filter(['type_filter' => $t['value'], 'q' => $indexSearch])) }}">
               <span class="trail-menu-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>
               {{ $t['label'] }}
             </a>

@@ -47,6 +47,17 @@ it('paginates the index to 25 actors per page', function () {
         ->and($component->viewData('totalPages'))->toBe(2);
 });
 
+it('hydrates the index filters from snake_case query params', function () {
+    $marina = User::create(['name' => 'Marina Rocha']);
+    seedSubjectEvent($marina->getMorphClass(), $marina->getKey(), now()->toDateTimeString());
+
+    Livewire::withQueryParams(['q' => 'Marina', 'type_filter' => $marina->getMorphClass()])
+        ->test(SubjectTimeline::class)
+        ->assertSet('indexSearch', 'Marina')
+        ->assertSet('typeFilter', $marina->getMorphClass())
+        ->assertSee('Marina Rocha');
+});
+
 it('finds a subject by name even when ranked low', function () {
     foreach (range(1, 30) as $i) {
         $u = User::create(['name' => "Filler $i"]);

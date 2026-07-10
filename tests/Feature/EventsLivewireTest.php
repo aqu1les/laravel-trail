@@ -70,6 +70,83 @@ it('hides page-view events by default and reveals them on toggle', function () {
         ->assertSee('page.viewed', false);
 });
 
+it('windows the real stream by the selected period', function () {
+    TrailEvent::create([
+        'name' => 'event.today',
+        'occurred_at' => now()->subHours(2),
+    ]);
+    TrailEvent::create([
+        'name' => 'event.three.days.ago',
+        'occurred_at' => now()->subDays(3),
+    ]);
+    TrailEvent::create([
+        'name' => 'event.ten.days.ago',
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    Livewire::test(Events::class)
+        ->assertSet('since', '7d')
+        ->assertSee('event.today', false)
+        ->assertSee('event.three.days.ago', false)
+        ->assertDontSee('event.ten.days.ago', false)
+        ->set('since', 'today')
+        ->assertSee('event.today', false)
+        ->assertDontSee('event.three.days.ago', false)
+        ->set('since', '30d')
+        ->assertSee('event.today', false)
+        ->assertSee('event.ten.days.ago', false);
+});
+
+it('hydrates the filters from the query string', function () {
+    TrailEvent::create(['name' => 'event.today', 'occurred_at' => now()->subHours(2)]);
+    TrailEvent::create(['name' => 'event.ten.days.ago', 'occurred_at' => now()->subDays(10)]);
+
+    // 'ten' matches only the older event, which the default 7d window would hide.
+    Livewire::withQueryParams(['since' => '30d', 'q' => 'ten', 'page_views' => true])
+        ->test(Events::class)
+        ->assertSet('since', '30d')
+        ->assertSet('search', 'ten')
+        ->assertSet('showPageViews', true)
+        ->assertSee('event.ten.days.ago', false)
+        ->assertSee('há 10d', false)
+        ->assertDontSee('há 2 h', false);
+});
+
+it('hydrates the event-name filter from a query-string array', function () {
+    TrailEvent::create(['name' => 'order.placed', 'occurred_at' => now()]);
+    TrailEvent::create(['name' => 'cart.updated', 'occurred_at' => now()]);
+
+    Livewire::withQueryParams(['events' => ['order.placed']])
+        ->test(Events::class)
+        ->assertSet('eventFilter', ['order.placed'])
+        ->assertSee('order.placed', false);
+});
+
+it('hydrates the actor filter from the query string', function () {
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 1,
+        'occurred_at' => now(),
+    ]);
+
+    Livewire::withQueryParams(['actor' => User::class.'|1'])
+        ->test(Events::class)
+        ->assertSet('actorFilter', User::class.'|1')
+        ->assertSee('order.placed', false);
+});
+
+it('falls back to the 7d window when the period token is unknown', function () {
+    TrailEvent::create(['name' => 'event.three.days.ago', 'occurred_at' => now()->subDays(3)]);
+    TrailEvent::create(['name' => 'event.ten.days.ago', 'occurred_at' => now()->subDays(10)]);
+
+    Livewire::withQueryParams(['since' => 'xyz'])
+        ->test(Events::class)
+        ->assertSet('since', '7d')
+        ->assertSee('event.three.days.ago', false)
+        ->assertDontSee('event.ten.days.ago', false);
+});
+
 it('only refreshes the real stream when new events arrive', function () {
     $component = Livewire::test(Events::class)->assertSet('lastSeenId', 0);
 
