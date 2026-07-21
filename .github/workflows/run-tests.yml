@@ -65,3 +65,70 @@ jobs:
 
       - name: Execute tests
         run: vendor/bin/pest --ci
+
+  # The suite above runs on SQLite, whose LIKE is case-insensitive and whose
+  # grammar forgives things Postgres does not. The dashboard emits real
+  # driver-specific SQL, so run the same suite against each server we claim to
+  # support. One PHP/Laravel combination is enough: this job guards the SQL, not
+  # the language matrix.
+  databases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [pgsql, mysql]
+
+    name: ${{ matrix.database }}
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: trail_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: trail_test
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, pdo_pgsql, pdo_mysql, bcmath, intl, fileinfo
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction
+
+      - name: Execute tests
+        env:
+          TRAIL_TEST_DB: ${{ matrix.database }}
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ matrix.database == 'pgsql' && '5432' || '3306' }}
+          DB_DATABASE: trail_test
+          DB_USERNAME: ${{ matrix.database == 'pgsql' && 'postgres' || 'root' }}
+          DB_PASSWORD: password
+        run: vendor/bin/pest --ci
