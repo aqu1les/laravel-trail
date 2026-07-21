@@ -147,6 +147,153 @@ it('falls back to the 7d window when the period token is unknown', function () {
         ->assertDontSee('event.ten.days.ago', false);
 });
 
+/**
+ * Fill the top of the window with rows that survive the default filters, so a
+ * test only passes if the filter under test reaches past the 200-row cap.
+ */
+function bury(int $rows = 200): void
+{
+    for ($i = 0; $i < $rows; $i++) {
+        TrailEvent::create(['name' => 'order.placed', 'occurred_at' => now()->subMinutes($i)]);
+    }
+}
+
+it('searches by event name beyond the newest 200 rows of the window', function () {
+    bury();
+    TrailEvent::create(['name' => 'user.registered', 'occurred_at' => now()->subDays(10)]);
+
+    $visible = Livewire::withQueryParams(['since' => '30d', 'q' => 'user.registered'])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toHaveCount(1)
+        ->and($visible[0]['name'])->toBe('user.registered');
+});
+
+it('filters by event name beyond the newest 200 rows of the window', function () {
+    bury();
+    TrailEvent::create(['name' => 'user.registered', 'occurred_at' => now()->subDays(10)]);
+
+    $visible = Livewire::withQueryParams(['since' => '30d', 'events' => ['user.registered']])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toHaveCount(1)
+        ->and($visible[0]['name'])->toBe('user.registered');
+});
+
+it('filters by actor beyond the newest 200 rows of the window', function () {
+    $user = User::create(['name' => 'Doralice Marques', 'email' => 'doralice@example.com']);
+    bury();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => $user->id,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    $visible = Livewire::withQueryParams(['since' => '30d', 'actor' => User::class.'|'.$user->id])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toHaveCount(1)
+        ->and($visible[0]['name'])->toBe('user.registered');
+});
+
+it('searches the actor identity beyond the newest 200 rows of the window', function () {
+    $user = User::create(['name' => 'Doralice Marques', 'email' => 'doralice@example.com']);
+    bury();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => $user->id,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    // 'Doralice' lives on the user row, not on the event, so this only matches
+    // if the actor lookup feeds the SQL filter.
+    $visible = Livewire::withQueryParams(['since' => '30d', 'q' => 'Doralice'])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toHaveCount(1)
+        ->and($visible[0]['actor']['name'])->toBe('Doralice Marques');
+});
+
+it('hides page views beyond the newest 200 rows of the window', function () {
+    for ($i = 0; $i < 200; $i++) {
+        TrailEvent::create(['name' => 'page.viewed', 'occurred_at' => now()->subMinutes($i)]);
+    }
+    TrailEvent::create(['name' => 'user.registered', 'occurred_at' => now()->subDays(10)]);
+
+    $visible = Livewire::withQueryParams(['since' => '30d'])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toHaveCount(1)
+        ->and($visible[0]['name'])->toBe('user.registered');
+});
+
+it('offers every event name in the window in the filter menu', function () {
+    bury();
+    TrailEvent::create(['name' => 'user.registered', 'occurred_at' => now()->subDays(10)]);
+
+    // The menu keeps the older name even while the search empties the table.
+    $names = Livewire::withQueryParams(['since' => '30d', 'q' => 'zzz-no-such-event'])
+        ->test(Events::class)
+        ->assertSee('Nenhum evento corresponde')
+        ->viewData('names');
+
+    expect($names)->toBe(['order.placed', 'user.registered']);
+});
+
+it('offers actors from the whole window in the filter menu', function () {
+    $user = User::create(['name' => 'Doralice Marques', 'email' => 'doralice@example.com']);
+    bury();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => $user->id,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    $actors = Livewire::withQueryParams(['since' => '30d'])
+        ->test(Events::class)
+        ->viewData('actors');
+
+    expect(collect($actors)->pluck('name'))->toContain('Doralice Marques');
+});
+
+it('searches case-insensitively', function () {
+    $user = User::create(['name' => 'Doralice Marques', 'email' => 'doralice@example.com']);
+    TrailEvent::create([
+        'name' => 'User.Registered',
+        'subject_type' => User::class,
+        'subject_id' => $user->id,
+        'occurred_at' => now(),
+    ]);
+
+    foreach (['user.registered', 'USER.REGISTERED', 'doralice', 'DORALICE'] as $term) {
+        $visible = Livewire::withQueryParams(['q' => $term])
+            ->test(Events::class)
+            ->viewData('visible');
+
+        expect($visible)->toHaveCount(1, "term: {$term}");
+    }
+});
+
+it('keeps the period window while filtering', function () {
+    bury();
+    TrailEvent::create(['name' => 'user.registered', 'occurred_at' => now()->subDays(10)]);
+
+    // Same filter, narrower window: the 10-day-old match must drop out.
+    $visible = Livewire::withQueryParams(['since' => '7d', 'q' => 'user.registered'])
+        ->test(Events::class)
+        ->viewData('visible');
+
+    expect($visible)->toBe([]);
+});
+
 it('only refreshes the real stream when new events arrive', function () {
     $component = Livewire::test(Events::class)->assertSet('lastSeenId', 0);
 
@@ -164,4 +311,19 @@ it('only refreshes the real stream when new events arrive', function () {
     $component->call('tick')
         ->assertSet('lastSeenId', $event->id)
         ->assertSee('order.placed', false);
+});
+
+it('keeps the open drawer populated when a filter excludes the selected row', function () {
+    $event = TrailEvent::create(['name' => 'order.placed', 'occurred_at' => now()]);
+    TrailEvent::create(['name' => 'cart.updated', 'occurred_at' => now()]);
+
+    // Open the drawer, then narrow the table so the selected row drops out of it.
+    // The drawer stays open client-side, so it must still have its event.
+    $component = Livewire::test(Events::class)
+        ->call('select', $event->id)
+        ->set('search', 'cart.updated');
+
+    expect($component->viewData('visible'))->toHaveCount(1)
+        ->and($component->viewData('selected'))->not->toBeNull()
+        ->and($component->viewData('selected')['name'])->toBe('order.placed');
 });

@@ -11,6 +11,9 @@ use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Queries\EventStreamQuery;
+use Trail\Trail\Queries\SubjectIdentity;
+use Trail\Trail\Queries\SubjectKey;
 
 class Events extends Component
 {
@@ -18,6 +21,12 @@ class Events extends Component
 
     /** The periods the segmented control offers, as URL-safe tokens. */
     private const PERIODS = ['today', '7d', '30d'];
+
+    /** How many rows the table renders at most. */
+    private const ROW_CAP = 200;
+
+    /** How many actors the filter menu offers at most. */
+    private const ACTOR_MENU_CAP = 200;
 
     /** When true the screen renders sample data instead of querying. */
     public bool $demo = false;
@@ -155,30 +164,73 @@ class Events extends Component
         };
     }
 
-    /** The event set backing this render - demo buffer or a real query. */
-    private function sourceEvents(): array
+    /**
+     * The stream behind this render, configured from the current filters.
+     *
+     * Not named stream(): Livewire\Component already defines a public stream().
+     */
+    private function eventStream(): EventStreamQuery
     {
-        if ($this->demo) {
-            return $this->events;
-        }
-
-        // Trail::events() already orders newest-first; window it, then cap and eager-load.
-        return Trail::events()->toBuilder()
-            ->where('occurred_at', '>=', $this->sinceAt())
-            ->with('subject')
-            ->limit(200)
-            ->get()
-            ->map(fn (TrailEvent $event) => $this->normalizeEvent($event))
-            ->all();
+        return EventStreamQuery::inWindow($this->sinceAt())
+            ->includingPageViews($this->showPageViews)
+            ->onlyNames($this->eventFilter)
+            ->byActor(SubjectKey::parse($this->actorFilter))
+            ->matching($this->search);
     }
 
-    public function render(): View
+    /**
+     * The actors offered by the filter menu, resolved to their display identity.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function actorFacets(): array
     {
-        $all = $this->sourceEvents();
+        $keys = $this->eventStream()->subjectsInWindow(self::ACTOR_MENU_CAP);
+        $identities = SubjectIdentity::resolve($keys);
 
+        // This menu is the only place the Events screen can surface an email,
+        // so a nameless subject is shown by its address rather than its id.
+        return array_map(
+            fn (SubjectKey $key) => SubjectIdentity::display($key, $identities, emailAsName: true),
+            $keys
+        );
+    }
+
+    /**
+     * The event the drawer shows. Looked up by id rather than picked out of the
+     * rendered rows: the drawer stays open client-side, so it must survive a
+     * filter (or a live tick) that drops its row from the table.
+     *
+     * @param  list<array<string,mixed>>  $visible
+     * @return array<string,mixed>|null
+     */
+    private function selectedEvent(array $visible): ?array
+    {
+        if ($this->selectedId === null) {
+            return null;
+        }
+
+        // Usually the row is right there; only pay for a query when it is not.
+        $row = collect($visible)->firstWhere('id', $this->selectedId);
+        if ($row !== null || $this->demo) {
+            return $row;
+        }
+
+        $event = TrailEvent::with('subject')->find($this->selectedId);
+
+        return $event === null ? null : $this->normalizeEvent($event);
+    }
+
+    /**
+     * The demo buffer, filtered in PHP - Sample data never touches the database.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function filteredDemoEvents(): array
+    {
         $pageViewName = Trail::pageViewName();
 
-        $visible = array_values(array_filter($all, function (array $e) use ($pageViewName): bool {
+        return array_values(array_filter($this->events, function (array $e) use ($pageViewName): bool {
             if (! $this->showPageViews && $e['name'] === $pageViewName) {
                 return false;
             }
@@ -197,18 +249,28 @@ class Events extends Component
 
             return true;
         }));
+    }
 
-        $names = collect($all)->pluck('name')->reject(fn ($n) => $n === $pageViewName)
-            ->unique()->sort()->values()->all();
+    public function render(): View
+    {
+        if ($this->demo) {
+            $pageViewName = Trail::pageViewName();
+            $visible = $this->filteredDemoEvents();
+            $names = collect($this->events)->pluck('name')->reject(fn ($n) => $n === $pageViewName)
+                ->unique()->sort()->values()->all();
+            $actors = collect($this->events)
+                ->reject(fn ($e) => ($e['subject_key'] ?? '') === '')
+                ->map(fn ($e) => $e['actor'] + ['key' => $e['subject_key']])
+                ->unique('key')->values()->all();
+        } else {
+            $visible = $this->eventStream()->rows(self::ROW_CAP)
+                ->map(fn (TrailEvent $event) => $this->normalizeEvent($event))
+                ->all();
+            $names = $this->eventStream()->namesInWindow();
+            $actors = $this->actorFacets();
+        }
 
-        $actors = collect($all)
-            ->reject(fn ($e) => ($e['subject_key'] ?? '') === '')
-            ->map(fn ($e) => $e['actor'] + ['key' => $e['subject_key']])
-            ->unique('key')->values()->all();
-
-        $selected = $this->selectedId !== null
-            ? collect($all)->firstWhere('id', $this->selectedId)
-            : null;
+        $selected = $this->selectedEvent($visible);
 
         return view('trail::livewire.events', [
             'visible' => $visible,

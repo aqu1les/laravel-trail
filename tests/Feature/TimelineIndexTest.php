@@ -97,3 +97,16 @@ it('finds an unresolved subject only by id', function () {
         ->set('indexSearch', 'ghostname')
         ->assertViewHas('total', 0);
 });
+
+it('keeps a subject that has an id but no type in the index', function () {
+    // Not selectable (there is nothing to filter on), but it must not vanish
+    // from the list either - it still represents real recorded activity.
+    TrailEvent::create(['name' => 'order.placed', 'subject_id' => 4242, 'occurred_at' => now()]);
+
+    $actors = Livewire::test(SubjectTimeline::class)->viewData('actors');
+
+    expect($actors)->toHaveCount(1)
+        ->and($actors[0]['name'])->toBe('Anônimo #4242')
+        ->and($actors[0]['id'])->toBe('4242')
+        ->and($actors[0]['key'])->toBe('');
+});

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Livewire\Livewire;
+use Trail\Trail\Livewire\Sample;
 use Trail\Trail\Livewire\SubjectTimeline;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Tests\Fixtures\User;
@@ -113,6 +114,127 @@ it('resolves a selected actor that ranks below the top activity list', function 
         ->viewData('actor');
 
     expect($actor['name'])->toBe('Marina Rocha');
+});
+
+/**
+ * Fill the actor's stream with rows that survive the default filters, so a test
+ * only passes if the filter under test reaches past the 300-row cap.
+ */
+function buryActor(string $name = 'order.placed', int $rows = 300): void
+{
+    for ($i = 0; $i < $rows; $i++) {
+        TrailEvent::create([
+            'name' => $name,
+            'subject_type' => User::class,
+            'subject_id' => 7,
+            'occurred_at' => now()->subMinutes($i),
+        ]);
+    }
+}
+
+it('filters by type beyond the actor\'s newest 300 rows', function () {
+    buryActor();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    $events = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->call('toggleType', 'user.registered')
+        ->viewData('events');
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['name'])->toBe('user.registered');
+});
+
+it('hides page views beyond the actor\'s newest 300 rows', function () {
+    buryActor('page.viewed');
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    $events = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->viewData('events');
+
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['name'])->toBe('order.placed');
+});
+
+it('offers every type the actor ever emitted as a chip', function () {
+    buryActor();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDays(10),
+    ]);
+
+    $types = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->viewData('types');
+
+    expect(collect($types)->pluck('name')->all())->toBe(['order.placed', 'user.registered']);
+});
+
+it('reports the actor stats over their whole history', function () {
+    buryActor();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDays(90),
+    ]);
+
+    $stats = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->viewData('stats');
+
+    expect($stats['total'])->toBe(301)
+        ->and($stats['top_event'])->toBe('order.placed')
+        ->and($stats['first'])->toBe(Sample::fullDate(now()->subDays(90)->getTimestampMs()));
+});
+
+it('keeps the stats panel on the whole history while a chip narrows the timeline', function () {
+    buryActor();
+    TrailEvent::create([
+        'name' => 'user.registered',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDays(90),
+    ]);
+
+    $component = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->call('toggleType', 'user.registered');
+
+    expect($component->viewData('events'))->toHaveCount(1)
+        ->and($component->viewData('stats')['total'])->toBe(301);
+});
+
+it('counts the daily bars over the whole history', function () {
+    // 300 rows today, plus one yesterday that the row cap used to swallow.
+    buryActor();
+    TrailEvent::create([
+        'name' => 'order.placed',
+        'subject_type' => User::class,
+        'subject_id' => 7,
+        'occurred_at' => now()->subDay(),
+    ]);
+
+    $stats = Livewire::test(SubjectTimeline::class)
+        ->set('actorId', User::class.'|7')
+        ->viewData('stats');
+
+    // bars run oldest-first over 7 days, so yesterday is the second-to-last.
+    expect($stats['bars'][5])->toBe(1)
+        ->and(array_sum($stats['bars']))->toBe(301);
 });
 
 it('excludes hidden page views from the timeline stats and counts them when revealed', function () {

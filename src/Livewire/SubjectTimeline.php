@@ -4,26 +4,31 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
-use Closure;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Queries\SubjectActivityQuery;
+use Trail\Trail\Queries\SubjectIdentity;
+use Trail\Trail\Queries\SubjectIndexQuery;
+use Trail\Trail\Queries\SubjectKey;
 
 class SubjectTimeline extends Component
 {
     use ResolvesEvents;
 
-    /** Cap on how many subject rows a single morph type contributes to a text search. */
-    private const SEARCH_CAP = 1000;
-
     private const INDEX_PER_PAGE = 25;
+
+    /** How many rows a single actor's timeline renders at most. */
+    private const TIMELINE_CAP = 300;
+
+    /** How many actors the switcher shortcut list offers. */
+    private const SWITCHER_CAP = 50;
+
+    /** How many days the activity bar chart covers. */
+    private const BAR_DAYS = 7;
 
     public bool $demo = false;
 
@@ -113,242 +118,43 @@ class SubjectTimeline extends Component
     }
 
     /**
-     * Distinct real subjects with resolved identity, most active first (the
-     * timeline switcher list). With no search term this is the activity
-     * ranking; with a term it searches the whole database (name/email/id) the
-     * same way the actors index does, so a quiet subject is still reachable.
-     */
-    private function realActors(string $search = ''): array
-    {
-        $query = Trail::events()->toBuilder()->reorder()
-            ->selectRaw('subject_type, subject_id, count(*) as aggregate')
-            ->whereNotNull('subject_id');
-
-        $term = trim($search);
-        if ($term !== '') {
-            $matchedByType = $this->searchSubjectIds($term, $this->distinctSubjectTypes());
-            $query->where($this->searchWhere($term, $matchedByType));
-        }
-
-        $rows = $query->groupBy('subject_type', 'subject_id')
-            ->orderByDesc('aggregate')->limit(50)->get();
-
-        $identities = $this->resolveIdentities(
-            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
-        );
-
-        return $rows->map(function ($row) use ($identities): array {
-            $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
-            $id = $identities[$row->subject_type.'|'.$row->subject_id] ?? null;
-
-            return [
-                'key' => $row->subject_type.'|'.$row->subject_id,
-                'name' => $id['name'] ?? "{$type} #{$row->subject_id}",
-                'type' => $type,
-                'id' => (string) $row->subject_id,
-                'email' => $id['email'] ?? null,
-            ];
-        })->all();
-    }
-
-    /** Resolve a single selected actor by its "subject_type|subject_id" key, regardless of ranking. */
-    private function resolveActor(string $key): array
-    {
-        if ($key === '') {
-            return ['key' => '', 'name' => '-', 'type' => '-', 'id' => '-', 'email' => null];
-        }
-
-        [$type, $id] = explode('|', $key, 2);
-        $identity = $this->resolveIdentities([[$type, $id]])[$key] ?? null;
-        $basename = $type !== '' ? class_basename($type) : 'Anônimo';
-
-        return [
-            'key' => $key,
-            'name' => $identity['name'] ?? "{$basename} #{$id}",
-            'type' => $basename,
-            'id' => (string) $id,
-            'email' => $identity['email'] ?? null,
-        ];
-    }
-
-    /**
-     * Distinct subject types present in the event stream, as {value,label} pairs
-     * sorted by label. Shared by the actors index and the switcher search.
+     * One page of the actors index, plus the options its type filter offers.
      *
-     * @return list<array{value: string, label: string}>
-     */
-    private function distinctSubjectTypes(): array
-    {
-        return Trail::events()->toBuilder()->reorder()
-            ->select('subject_type')
-            ->whereNotNull('subject_type')
-            ->distinct()
-            ->pluck('subject_type')
-            ->filter()
-            ->map(fn ($t) => ['value' => $t, 'label' => class_basename($t)])
-            ->sortBy('label')
-            ->values()
-            ->all();
-    }
-
-    /**
-     * One page of the actors index. Counting, ordering, search and pagination all run
-     * in SQL; identities are resolved for the current page only (not the whole table).
+     * @return array{actors: list<array<string,mixed>>, total: int, page: int, totalPages: int, distinctTypes: list<array{value: string, label: string}>}
      */
     private function indexActors(): array
     {
-        $distinctTypes = $this->distinctSubjectTypes();
-
-        $term = trim($this->indexSearch);
-        $filter = $this->indexFilters($term, $distinctTypes);
-
-        // Total distinct subjects, via a grouped subquery (portable count of groups).
-        $countSub = $filter(Trail::events()->toBuilder()->reorder())
-            ->selectRaw('1')
-            ->groupBy('subject_type', 'subject_id');
-        $total = DB::query()->fromSub($countSub, 'sub')->count();
-
-        $perPage = self::INDEX_PER_PAGE;
-        $totalPages = max(1, (int) ceil($total / $perPage));
-        $page = max(1, min($this->page, $totalPages));
-
-        $rows = $filter(Trail::events()->toBuilder()->reorder())
-            ->selectRaw('subject_type, subject_id, count(*) as total, max(occurred_at) as last_seen')
-            ->groupBy('subject_type', 'subject_id')
-            ->orderByDesc('last_seen')
-            ->orderBy('subject_type')
-            ->orderByDesc('subject_id')
-            ->limit($perPage)->offset(($page - 1) * $perPage)
-            ->toBase()->get();
-
-        $identities = $this->resolveIdentities(
-            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
-        );
-
-        $actors = $rows->map(function ($row) use ($identities): array {
-            $type = $row->subject_type ? class_basename($row->subject_type) : 'Anônimo';
-            $key = $row->subject_type.'|'.$row->subject_id;
-            $identity = $identities[$key] ?? null;
-
-            return [
-                'key' => $key,
-                'name' => $identity['name'] ?? "{$type} #{$row->subject_id}",
-                'type' => $type,
-                'id' => (string) $row->subject_id,
-                'email' => $identity['email'] ?? null,
-                'total' => (int) $row->total,
-                'last_seen' => $row->last_seen !== null
-                    ? (int) (strtotime((string) $row->last_seen) * 1000)
-                    : null,
-            ];
-        })->all();
+        $index = SubjectIndexQuery::make()
+            ->matching($this->indexSearch)
+            ->ofType($this->typeFilter);
 
         return [
-            'actors' => $actors,
-            'total' => $total,
-            'page' => $page,
-            'totalPages' => $totalPages,
-            'distinctTypes' => $distinctTypes,
+            ...$index->page($this->page, self::INDEX_PER_PAGE),
+            'distinctTypes' => $index->typeFilterOptions(),
         ];
     }
 
     /**
-     * Build the shared WHERE clause for the index (type filter + text search), so the
-     * count and the page query stay in sync. Search matches subject id directly, plus
-     * name/email looked up in each morph type's own table. Types whose model has no
-     * name/email column (or no resolvable class) are only reachable by id.
+     * The switcher's shortcut list: most active subjects, or a database search
+     * when a term is typed so a quiet subject stays reachable.
      *
-     * @param  list<array{value: string, label: string}>  $distinctTypes
+     * @return list<array<string,mixed>>
      */
-    private function indexFilters(string $term, array $distinctTypes): Closure
+    private function realActors(string $search = ''): array
     {
-        $matchedByType = $term === '' ? [] : $this->searchSubjectIds($term, $distinctTypes);
-
-        return function (Builder $query) use ($term, $matchedByType): Builder {
-            $query->whereNotNull('subject_id')
-                ->when($this->typeFilter !== '', fn ($q) => $q->where('subject_type', $this->typeFilter));
-
-            if ($term !== '') {
-                $query->where($this->searchWhere($term, $matchedByType));
-            }
-
-            return $query;
-        };
+        return SubjectIndexQuery::make()->matching($search)->mostActive(self::SWITCHER_CAP);
     }
 
-    /**
-     * The text-search predicate shared by the actors index and the timeline
-     * switcher: match the subject id directly (numeric terms) plus the ids whose
-     * name/email matched in each morph type's own table. An empty match set
-     * collapses to "no rows" so a non-numeric miss never returns everything.
-     *
-     * @param  array<string, list<int|string>>  $matchedByType  keyed by subject_type
-     */
-    private function searchWhere(string $term, array $matchedByType): Closure
+    /** Resolve a selected actor by its key, regardless of activity ranking. */
+    private function resolveActor(string $token): array
     {
-        return function ($q) use ($term, $matchedByType): void {
-            $matched = false;
+        $key = SubjectKey::parse($token);
 
-            if (ctype_digit($term)) {
-                $q->orWhere('subject_id', (int) $term);
-                $matched = true;
-            }
-
-            foreach ($matchedByType as $type => $ids) {
-                $q->orWhere(fn ($qq) => $qq->where('subject_type', $type)->whereIn('subject_id', $ids));
-                $matched = true;
-            }
-
-            if (! $matched) {
-                $q->whereRaw('1 = 0');
-            }
-        };
-    }
-
-    /**
-     * For each morph type, find subject ids whose name/email matches the term, querying
-     * the subject's own (indexed) table. Capped per type so a broad term can't explode.
-     *
-     * @param  list<array{value: string, label: string}>  $distinctTypes
-     * @return array<string, list<int|string>> keyed by subject_type
-     */
-    private function searchSubjectIds(string $term, array $distinctTypes): array
-    {
-        $matched = [];
-
-        foreach ($distinctTypes as $entry) {
-            $type = $entry['value'];
-            $class = Relation::getMorphedModel($type) ?? $type;
-            if (! class_exists($class)) {
-                continue;
-            }
-
-            $model = new $class;
-            $schema = Schema::connection($model->getConnectionName());
-            $columns = array_values(array_filter(
-                ['name', 'email'],
-                fn ($c) => $schema->hasColumn($model->getTable(), $c)
-            ));
-            if ($columns === []) {
-                continue;
-            }
-
-            $ids = $class::query()
-                ->where(function ($q) use ($columns, $term): void {
-                    foreach ($columns as $column) {
-                        $q->orWhere($column, 'like', "%{$term}%");
-                    }
-                })
-                ->limit(self::SEARCH_CAP)
-                ->pluck($model->getKeyName())
-                ->all();
-
-            if ($ids !== []) {
-                $matched[$type] = $ids;
-            }
+        if ($key === null) {
+            return SubjectIdentity::anonymous();
         }
 
-        return $matched;
+        return SubjectIdentity::display($key, SubjectIdentity::resolve([$key]));
     }
 
     public function render(): View
@@ -362,36 +168,23 @@ class SubjectTimeline extends Component
 
         if ($this->demo) {
             $actor = $this->demoActor();
-            $events = $this->demoEvents;
+            $rows = $this->filteredDemoEvents();
+            $stats = $this->statsFromEvents($this->demoStatsEvents());
+            $types = $this->typesFrom(collect($this->demoEvents)->pluck('name')->all());
             $results = array_map(fn ($a) => $a + ['key' => $a['id']], Sample::actors());
         } else {
+            $key = SubjectKey::parse($this->actorId);
             $actor = $this->resolveActor($this->actorId);
-            $events = $this->realEventsFor($actor['key']);
+            $rows = $this->realEventsFor($key);
+            $stats = $this->realStatsFor($key);
+            $types = $this->realTypesFor($key);
             // No term: the activity-ranked shortcut list. With a term: a database
             // search so any actor is reachable, not just the most active ones.
             $results = $this->realActors($this->actorSearch);
         }
 
-        $pageViewName = Trail::pageViewName();
-
-        $filtered = $this->activeTypes !== []
-            ? array_values(array_filter($events, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
-            : $events;
-
-        if (! $this->showPageViews) {
-            $filtered = array_values(array_filter($filtered, fn ($e) => $e['name'] !== $pageViewName));
-        }
-
-        // Stats reflect the actor's activity independent of the type-chip filter,
-        // but they do follow the page-view hide toggle: when page views are
-        // hidden the totals, top event, and daily bars all exclude them, so the
-        // panel stays consistent with the visible timeline.
-        $statsEvents = $this->showPageViews
-            ? $events
-            : array_values(array_filter($events, fn ($e) => $e['name'] !== $pageViewName));
-
         $groups = [];
-        foreach ($filtered as $e) {
+        foreach ($rows as $e) {
             $label = Sample::dayLabel($e['ts']);
             if ($groups === [] || end($groups)['label'] !== $label) {
                 $groups[] = ['label' => $label, 'date' => Sample::fullDate($e['ts']), 'items' => []];
@@ -402,62 +195,171 @@ class SubjectTimeline extends Component
             ];
         }
 
-        $types = collect($events)->pluck('name')->reject(fn ($name) => $name === $pageViewName)
+        return view('trail::livewire.subject-timeline', [
+            'indexMode' => false,
+            'actor' => $actor,
+            'groups' => $groups,
+            'types' => $types,
+            'events' => $rows,
+            'empty' => $rows === [],
+            'stats' => $stats,
+            'results' => $results,
+        ])->layout('trail::layout', ['active' => ($this->demo ? 'demo-' : '').'timeline', 'title' => 'Subject Timeline']);
+    }
+
+    /**
+     * The type chips, from a list of event names.
+     *
+     * Page views never get a chip, whatever the toggle says: they have their own
+     * dedicated button, so offering both would be two controls for one thing.
+     * That is a UI rule, separate from the query-level page-view filter.
+     *
+     * @param  list<string>  $names
+     * @return list<array<string,mixed>>
+     */
+    private function typesFrom(array $names): array
+    {
+        return collect($names)->reject(fn ($name) => $name === Trail::pageViewName())
             ->unique()->sort()->values()
             ->map(fn ($name) => [
                 'name' => $name,
                 'color' => Sample::colorFor($name),
                 'on' => in_array($name, $this->activeTypes, true),
             ])->all();
+    }
 
-        $ts = array_column($statsEvents, 'ts');
-        $counts = array_count_values(array_column($statsEvents, 'name'));
+    /**
+     * The demo buffer narrowed by the chips and the page-view toggle.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function filteredDemoEvents(): array
+    {
+        $events = $this->activeTypes !== []
+            ? array_values(array_filter($this->demoEvents, fn ($e) => in_array($e['name'], $this->activeTypes, true)))
+            : $this->demoEvents;
+
+        if (! $this->showPageViews) {
+            $events = array_values(array_filter($events, fn ($e) => $e['name'] !== Trail::pageViewName()));
+        }
+
+        return $events;
+    }
+
+    /**
+     * The demo buffer the stats panel summarises: the chips do not narrow it,
+     * the page-view toggle does.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function demoStatsEvents(): array
+    {
+        return $this->showPageViews
+            ? $this->demoEvents
+            : array_values(array_filter($this->demoEvents, fn ($e) => $e['name'] !== Trail::pageViewName()));
+    }
+
+    /** The activity query for the selected actor, honouring the page-view toggle. */
+    private function activity(SubjectKey $key): SubjectActivityQuery
+    {
+        return SubjectActivityQuery::for($key)->includingPageViews($this->showPageViews);
+    }
+
+    /**
+     * The rows the timeline renders: filtered in SQL before the cap, so a chip
+     * can surface an event older than the actor's newest rows.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function realEventsFor(?SubjectKey $key): array
+    {
+        if ($key === null) {
+            return [];
+        }
+
+        return $this->activity($key)->events($this->activeTypes, self::TIMELINE_CAP)
+            ->map(fn (TrailEvent $e) => $this->normalizeEvent($e))->all();
+    }
+
+    /**
+     * The chips offered for an actor: every name they ever emitted, so the row
+     * cap does not hide a type from the filter.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function realTypesFor(?SubjectKey $key): array
+    {
+        return $key === null ? [] : $this->typesFrom($this->activity($key)->distinctNames());
+    }
+
+    /**
+     * The stats panel, aggregated in SQL so it covers the actor's whole history
+     * rather than the capped slice the timeline happens to render.
+     *
+     * @return array<string,mixed>
+     */
+    private function realStatsFor(?SubjectKey $key): array
+    {
+        if ($key === null) {
+            return $this->statsFromEvents([]);
+        }
+
+        $activity = $this->activity($key);
+        $counts = $activity->totals();
+        ['first' => $first, 'last' => $last] = $activity->bounds();
+
+        return [
+            'total' => array_sum($counts),
+            'sessions' => $counts['session.started'] ?? 0,
+            'first' => $first === null ? '-' : Sample::fullDate((int) (strtotime($first) * 1000)),
+            'last' => $last === null ? '-' : Sample::relative((int) (strtotime($last) * 1000)),
+            'top_event' => array_key_first($counts) ?? '-',
+            ...$this->barsFrom($activity->dailyCounts(self::BAR_DAYS)),
+        ];
+    }
+
+    /**
+     * The stats panel for an in-memory event list (demo mode).
+     *
+     * @param  list<array<string,mixed>>  $events
+     * @return array<string,mixed>
+     */
+    private function statsFromEvents(array $events): array
+    {
+        $ts = array_column($events, 'ts');
+        $counts = array_count_values(array_column($events, 'name'));
         arsort($counts);
+
         $byDay = [];
-        foreach ($statsEvents as $e) {
+        foreach ($events as $e) {
             $k = (int) (strtotime(date('Y-m-d', (int) ($e['ts'] / 1000))) * 1000);
             $byDay[$k] = ($byDay[$k] ?? 0) + 1;
         }
+
+        return [
+            'total' => count($events),
+            'sessions' => $counts['session.started'] ?? 0,
+            'first' => $ts === [] ? '-' : Sample::fullDate(min($ts)),
+            'last' => $ts === [] ? '-' : Sample::relative(max($ts)),
+            'top_event' => array_key_first($counts) ?? '-',
+            ...$this->barsFrom($byDay),
+        ];
+    }
+
+    /**
+     * The 7-day bar series, from daily counts keyed by day-start timestamp.
+     *
+     * @param  array<int, int>  $byDay
+     * @return array{bars: list<int>, max_bar: int}
+     */
+    private function barsFrom(array $byDay): array
+    {
         $today = (int) (strtotime('today') * 1000);
         $bars = [];
         for ($i = 6; $i >= 0; $i--) {
-            $bars[] = $byDay[$today - $i * 86400000] ?? 0;
+            $bars[] = (int) ($byDay[$today - $i * 86400000] ?? 0);
         }
 
-        return view('trail::livewire.subject-timeline', [
-            'indexMode' => false,
-            'actor' => $actor,
-            'groups' => $groups,
-            'types' => $types,
-            'events' => $events,
-            'empty' => $filtered === [],
-            'stats' => [
-                'total' => count($statsEvents),
-                'sessions' => $counts['session.started'] ?? 0,
-                'first' => $ts === [] ? '-' : Sample::fullDate(min($ts)),
-                'last' => $ts === [] ? '-' : Sample::relative(max($ts)),
-                'top_event' => array_key_first($counts) ?? '-',
-                'bars' => $bars,
-                'max_bar' => max(1, ...$bars),
-            ],
-            'results' => $results,
-        ])->layout('trail::layout', ['active' => ($this->demo ? 'demo-' : '').'timeline', 'title' => 'Subject Timeline']);
-    }
-
-    private function realEventsFor(string $key): array
-    {
-        if ($key === '') {
-            return [];
-        }
-        [$type, $id] = explode('|', $key, 2);
-
-        // Trail::events() already orders newest-first; uses the
-        // (subject_type, subject_id, occurred_at) composite index.
-        return Trail::events()->toBuilder()
-            ->with('subject')
-            ->where('subject_type', $type)
-            ->where('subject_id', $id)
-            ->limit(300)->get()
-            ->map(fn (TrailEvent $e) => $this->normalizeEvent($e))->all();
+        return ['bars' => $bars, 'max_bar' => max(1, ...$bars)];
     }
 }

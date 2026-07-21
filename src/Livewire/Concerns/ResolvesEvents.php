@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire\Concerns;
 
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Trail\Trail\Models\TrailEvent;
 
 /**
@@ -53,38 +52,5 @@ trait ResolvesEvents
             'context' => $event->context ?? [],
             'ts' => (int) $event->occurred_at->getTimestampMs(),
         ];
-    }
-
-    /**
-     * Batch-resolve subject identities, one query per distinct subject type
-     * (avoids an N+1 find() per actor).
-     *
-     * @param  list<array{0: ?string, 1: mixed}>  $pairs  [subject_type, subject_id]
-     * @return array<string, array{name: ?string, email: ?string}> keyed by "type|id"
-     */
-    protected function resolveIdentities(array $pairs): array
-    {
-        $idsByType = [];
-        foreach ($pairs as [$type, $id]) {
-            if ($type !== null) {
-                $class = Relation::getMorphedModel($type) ?? $type;
-                if (class_exists($class)) {
-                    $idsByType[$type] ??= ['class' => $class, 'ids' => []];
-                    $idsByType[$type]['ids'][] = $id;
-                }
-            }
-        }
-
-        $out = [];
-        foreach ($idsByType as $type => $entry) {
-            foreach ($entry['class']::query()->whereKey(array_values(array_unique($entry['ids'])))->get() as $model) {
-                $out[$type.'|'.$model->getKey()] = [
-                    'name' => $model->name ?? null,
-                    'email' => $model->email ?? null,
-                ];
-            }
-        }
-
-        return $out;
     }
 }

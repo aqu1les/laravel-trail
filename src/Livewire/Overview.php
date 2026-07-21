@@ -13,6 +13,8 @@ use Trail\Trail\Facades\Trail;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailAggregate;
 use Trail\Trail\Models\TrailEvent;
+use Trail\Trail\Queries\SubjectIdentity;
+use Trail\Trail\Queries\SubjectKey;
 
 class Overview extends Component
 {
@@ -249,8 +251,9 @@ class Overview extends Component
             ->groupBy('subject_type', 'subject_id')
             ->orderByDesc('aggregate')->limit(5)->get();
 
-        $identities = $this->resolveIdentities(
-            $rows->map(fn ($r) => [$r->subject_type, $r->subject_id])->all()
+        $identities = SubjectIdentity::resolve(
+            $rows->map(fn ($r) => SubjectKey::of($r->subject_type, $r->subject_id))
+                ->filter()->values()->all()
         );
 
         return $rows->map(function ($row) use ($identities): array {
