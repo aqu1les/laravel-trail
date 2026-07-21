@@ -22,10 +22,10 @@ it('records the path as a property, plus route name when the route is named', fu
     $this->get('/welcome')->assertOk();
 
     $event = TrailEvent::firstWhere('name', 'page.viewed');
-    expect($event->properties)->toBe([
-        'route' => 'welcome',
-        'path' => 'welcome',
-    ]);
+    expect($event->properties)
+        ->toHaveCount(2)
+        ->toHaveKey('route', 'welcome')
+        ->toHaveKey('path', 'welcome');
 });
 
 it('omits the route property for unnamed routes', function () {
