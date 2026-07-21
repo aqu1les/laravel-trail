@@ -41,11 +41,36 @@ class TestCase extends Orchestra
         // (the ingest rate limiter is cache-backed).
         config()->set('cache.default', 'array');
         config()->set('database.default', 'testing');
-        config()->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
+        config()->set('database.connections.testing', $this->connectionUnderTest());
+    }
+
+    /**
+     * The connection under test. SQLite in memory by default; set TRAIL_TEST_DB
+     * to pgsql or mysql to run the same suite against a real server.
+     *
+     * The dashboard emits driver-specific SQL (ilike vs like, date(), grouped
+     * subqueries), so a SQLite-only suite can go green while Postgres breaks.
+     *
+     * @return array<string, mixed>
+     */
+    private function connectionUnderTest(): array
+    {
+        $driver = env('TRAIL_TEST_DB', 'sqlite');
+
+        if ($driver === 'sqlite') {
+            return ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''];
+        }
+
+        return [
+            'driver' => $driver,
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', $driver === 'pgsql' ? '5432' : '3306'),
+            'database' => env('DB_DATABASE', 'trail_test'),
+            'username' => env('DB_USERNAME', $driver === 'pgsql' ? 'postgres' : 'root'),
+            'password' => env('DB_PASSWORD', 'password'),
+            'charset' => $driver === 'pgsql' ? 'utf8' : 'utf8mb4',
             'prefix' => '',
-        ]);
+        ];
     }
 
     protected function defineDatabaseMigrations(): void
@@ -55,6 +80,10 @@ class TestCase extends Orchestra
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         view()->addNamespace('trail-fixtures', __DIR__.'/Fixtures/views');
+
+        // A server-backed driver keeps the table between tests, unlike an
+        // in-memory SQLite file that dies with the connection.
+        Schema::dropIfExists('users');
 
         Schema::create('users', function (Blueprint $table) {
             $table->id();
