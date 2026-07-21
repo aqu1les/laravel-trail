@@ -8,18 +8,12 @@ afterEach(function () {
     Trail::auth(null);
 });
 
-it('Trail::styles() returns an inline style tag', function () {
-    $html = Trail::styles();
-
-    expect($html)
-        ->toStartWith('<style>')
-        ->toEndWith('</style>');
-});
-
-it('Trail::styles() includes design-system tokens and component classes', function () {
+it('Trail::styles() returns an inline tag carrying the design-system tokens', function () {
     $css = Trail::styles();
 
     expect($css)
+        ->toStartWith('<style>')
+        ->toEndWith('</style>')
         ->toContain('--trail-accent')
         ->toContain('--trail-radius-lg')
         ->toContain('.trail-btn')
