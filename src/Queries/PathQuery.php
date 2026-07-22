@@ -30,6 +30,14 @@ final class PathQuery
     /** How many steps a single path may carry before it is cut. */
     private const DEFAULT_MAX_STEPS = 8;
 
+    /**
+     * How many of a subject's in-window events assemble() will scan looking for
+     * the end event once maxSteps is behind it. A hard bound so a pathological
+     * subject (thousands of events in the window) cannot make a single read
+     * unbounded.
+     */
+    private const SCAN_CAP = 1000;
+
     private string $startEvent = '';
 
     private ?string $endEvent = null;
@@ -56,7 +64,9 @@ final class PathQuery
     /** Optional terminus: paths are cut here, and paths that never reach it are dropped. */
     public function endingAt(?string $name): self
     {
-        $this->endEvent = $name;
+        // An empty string means unset, same as startingAt(''): a screen bound to a
+        // "" terminus would match nothing and silently empty the whole result.
+        $this->endEvent = $name === '' ? null : $name;
 
         return $this;
     }
@@ -128,16 +138,16 @@ final class PathQuery
 
         $cohort = $this->cohort();
 
-        if ($cohort === []) {
+        if ($cohort['tokens'] === []) {
             return $empty;
         }
 
-        $eventsBySubject = $this->eventsFor($cohort);
+        $eventsBySubject = $this->eventsFor($cohort['tokens']);
         $rows = [];
 
         // Iterate the cohort, not the grouped events: the cohort already carries
         // the recency ordering the screen renders in.
-        foreach ($cohort as $token) {
+        foreach ($cohort['tokens'] as $token) {
             $row = $this->assemble($token, $eventsBySubject[$token] ?? []);
 
             if ($row !== null) {
@@ -148,7 +158,7 @@ final class PathQuery
         return [
             'rows' => $rows,
             'total' => count($rows),
-            'truncated' => count($cohort) >= self::SUBJECT_CAP,
+            'truncated' => $cohort['truncated'],
         ];
     }
 
@@ -156,11 +166,15 @@ final class PathQuery
      * The subjects that fired the start event inside the window, most recent
      * starter first, as "type|id" tokens.
      *
-     * @return list<string>
+     * Reads one row past SUBJECT_CAP so truncation can be told from "exactly
+     * at the cap": counting the kept rows against the cap would flag an
+     * untruncated, exactly-full cohort as truncated.
+     *
+     * @return array{tokens: list<string>, truncated: bool}
      */
     private function cohort(): array
     {
-        return $this->window()->reorder()
+        $rows = $this->window()->reorder()
             ->where('name', $this->startEvent)
             ->whereNotNull('subject_type')
             ->whereNotNull('subject_id')
@@ -169,13 +183,19 @@ final class PathQuery
             ->orderByRaw('max(occurred_at) desc')
             ->orderBy('subject_type')
             ->orderBy('subject_id')
-            ->limit(self::SUBJECT_CAP)
-            ->get()
+            ->limit(self::SUBJECT_CAP + 1)
+            ->get();
+
+        $truncated = $rows->count() > self::SUBJECT_CAP;
+
+        $tokens = $rows->take(self::SUBJECT_CAP)
             ->map(fn (TrailEvent $row) => SubjectKey::of($row->subject_type, $row->subject_id))
             ->filter()
             ->map(fn (SubjectKey $key) => (string) $key)
             ->values()
             ->all();
+
+        return ['tokens' => $tokens, 'truncated' => $truncated];
     }
 
     /**
@@ -184,6 +204,10 @@ final class PathQuery
      * The ids are grouped by subject_type and applied as one OR clause per type:
      * a composite whereIn over a column pair is not portable across the three
      * drivers the package supports. EventStreamQuery::applySearch does the same.
+     *
+     * Only the four columns assemble() reads are selected: hydrating the
+     * properties/context JSON casts and the value decimal cast for up to
+     * SUBJECT_CAP subjects' whole in-window history is pure waste here.
      *
      * @param  list<string>  $cohort
      * @return array<string, list<TrailEvent>>
@@ -209,6 +233,7 @@ final class PathQuery
                         ->whereIn('subject_id', array_values(array_unique($ids))));
                 }
             })
+            ->select('subject_type', 'subject_id', 'name', 'occurred_at', 'id')
             ->orderBy('subject_type')
             ->orderBy('subject_id')
             ->orderBy('occurred_at')
@@ -236,10 +261,12 @@ final class PathQuery
         $key = SubjectKey::parse($token);
         $anchor = null;
 
+        // The LAST occurrence, not the first: cohort() orders subjects by their
+        // most recent start (max(occurred_at) desc), so anchoring on an earlier
+        // occurrence would render a stale journey under a recency-ordered row.
         foreach ($events as $index => $event) {
             if ($event->name === $this->startEvent) {
                 $anchor = $index;
-                break;
             }
         }
 
@@ -250,22 +277,67 @@ final class PathQuery
         $steps = [];
         $previousName = null;
         $previousAt = null;
+        // The at of the last event actually scanned, regardless of whether it was
+        // collapsed away or rendered as a step. Only used to date the terminus
+        // step when scanning has continued past maxSteps (see below); everywhere
+        // else gaps are measured against $previousAt, i.e. against the last
+        // rendered step, so a collapsed run's gap is measured from its first
+        // occurrence and sums back to the total path duration.
+        $rawPreviousAt = null;
         $completed = false;
         $truncated = false;
+        $scanned = 0;
 
         foreach (array_slice($events, $anchor) as $event) {
+            if ($scanned >= self::SCAN_CAP) {
+                break;
+            }
+
+            $scanned++;
+
+            $at = $event->occurred_at;
+            $isTerminus = $this->endEvent !== null && $event->name === $this->endEvent;
+
             // A run of the same event is one step: noisy tracking should not
             // push the interesting tail past maxSteps.
             if ($this->collapseRepeats && $event->name === $previousName) {
+                $rawPreviousAt = $at;
+
                 continue;
             }
 
             if (count($steps) >= $this->maxSteps) {
                 $truncated = true;
+
+                if ($this->endEvent === null) {
+                    break;
+                }
+
+                if (! $isTerminus) {
+                    // No terminus yet: keep scanning past the cap, but stop
+                    // rendering steps, so a converting subject is not confused
+                    // with one that never converts.
+                    $previousName = $event->name;
+                    $rawPreviousAt = $at;
+
+                    continue;
+                }
+
+                // Found it past the cap: render it as the closing step. Its gap is
+                // measured from the event that actually preceded it in the source
+                // stream, not from the last rendered step, since rendering already
+                // stopped maxSteps steps ago.
+                $steps[] = [
+                    'name' => $event->name,
+                    'occurred_at' => $at,
+                    'gap_seconds' => $rawPreviousAt === null
+                        ? null
+                        : max(0, $at->getTimestamp() - $rawPreviousAt->getTimestamp()),
+                ];
+
+                $completed = true;
                 break;
             }
-
-            $at = $event->occurred_at;
 
             $steps[] = [
                 'name' => $event->name,
@@ -277,15 +349,19 @@ final class PathQuery
 
             $previousName = $event->name;
             $previousAt = $at;
+            $rawPreviousAt = $at;
 
-            if ($this->endEvent !== null && $event->name === $this->endEvent) {
+            if ($isTerminus) {
                 $completed = true;
                 break;
             }
         }
 
+        // steps is never empty here: maxSteps() enforces at least 1, and the
+        // anchor event itself is always accepted as the first step before any
+        // cap or collapse check can apply.
         // With a terminus set, a path that never got there is not a path at all.
-        if ($steps === [] || ($this->endEvent !== null && ! $completed)) {
+        if ($this->endEvent !== null && ! $completed) {
             return null;
         }
 

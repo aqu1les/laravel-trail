@@ -6,14 +6,21 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\PathQuery;
+use Trail\Trail\Tests\Fixtures\Team;
 use Trail\Trail\Tests\Fixtures\User;
 
-/** Seed one event for a subject at an exact instant. */
+/** Seed one event for a User subject at an exact instant. */
 function seedPathEvent(int $subjectId, string $name, string $at): TrailEvent
+{
+    return seedPathEventFor(User::class, $subjectId, $name, $at);
+}
+
+/** Seed one event for an arbitrary subject type at an exact instant. */
+function seedPathEventFor(string $subjectType, int|string $subjectId, string $name, string $at): TrailEvent
 {
     return TrailEvent::create([
         'name' => $name,
-        'subject_type' => User::class,
+        'subject_type' => $subjectType,
         'subject_id' => $subjectId,
         'occurred_at' => Carbon::parse($at),
     ]);
@@ -27,7 +34,7 @@ function pathQuery(): PathQuery
 
 it('reconstructs a path in occurred_at order, with the gap between steps', function () {
     // Seeded out of order on purpose: the engine must sort, not trust insertion.
-    seedPathEvent(1, 'order.placed', '-2 days +5 minutes');
+    $last = seedPathEvent(1, 'order.placed', '-2 days +5 minutes');
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(1, 'number_verified', '-2 days +30 seconds');
 
@@ -42,7 +49,8 @@ it('reconstructs a path in occurred_at order, with the gap between steps', funct
         ->and(array_column($steps, 'gap_seconds'))->toBe([null, 30, 270])
         ->and((string) $result['rows'][0]['key'])->toBe(User::class.'|1')
         ->and($result['rows'][0]['completed'])->toBeFalse()
-        ->and($result['rows'][0]['truncated'])->toBeFalse();
+        ->and($result['rows'][0]['truncated'])->toBeFalse()
+        ->and($result['rows'][0]['last_at']->eq($last->occurred_at))->toBeTrue();
 });
 
 it('keeps only subjects that fired the start event, and drops what preceded it', function () {
@@ -69,8 +77,15 @@ it('collapses identical consecutive events, and leaves them when asked not to', 
     seedPathEvent(1, 'order.placed', '-2 days +4 minutes');
 
     $collapsed = pathQuery()->startingAt('register')->sequences();
-    expect(array_column($collapsed['rows'][0]['steps'], 'name'))
-        ->toBe(['register', 'cart.updated', 'order.placed']);
+    $steps = $collapsed['rows'][0]['steps'];
+
+    expect(array_column($steps, 'name'))
+        ->toBe(['register', 'cart.updated', 'order.placed'])
+        // The gap after a collapsed run is measured from the run's FIRST
+        // occurrence, not its last: gaps sum back to the total path duration
+        // (60 + 180 = 240 seconds from register to order.placed) rather than
+        // hiding the 120 seconds the run itself spanned.
+        ->and(array_column($steps, 'gap_seconds'))->toBe([null, 60, 180]);
 
     $raw = pathQuery()->startingAt('register')->collapseRepeats(false)->sequences();
     expect(array_column($raw['rows'][0]['steps'], 'name'))
@@ -107,17 +122,140 @@ it('cuts at the end event and discards subjects that never reach it', function (
         ->and($result['rows'][0]['completed'])->toBeTrue();
 });
 
-it('ignores page views and events outside the window', function () {
+it('treats an empty end event the same as none at all', function () {
+    // endingAt('') must normalise to unset, the same as startingAt('') does -
+    // otherwise every subject is compared against a terminus that can never
+    // match and the whole screen empties out.
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'order.placed', '-2 days +1 minute');
+
+    $result = pathQuery()->startingAt('register')->endingAt('')->sequences();
+
+    expect($result['total'])->toBe(1)
+        ->and($result['rows'][0]['completed'])->toBeFalse()
+        ->and(array_column($result['rows'][0]['steps'], 'name'))->toBe(['register', 'order.placed']);
+});
+
+it('anchors on the LAST occurrence of the start event, not the first', function () {
+    // Subject registers twice. The first journey (session.started) is stale;
+    // the second (cart.updated -> order.placed) is what actually happened
+    // after the subject's most recent start, which is what cohort()'s
+    // max(occurred_at) desc ordering assumes the row represents.
+    seedPathEvent(1, 'register', '-6 days');
+    seedPathEvent(1, 'session.started', '-6 days +1 minute');
+
+    seedPathEvent(1, 'register', '-1 day');
+    seedPathEvent(1, 'cart.updated', '-1 day +1 minute');
+    seedPathEvent(1, 'order.placed', '-1 day +2 minutes');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect($result['total'])->toBe(1)
+        ->and(array_column($result['rows'][0]['steps'], 'name'))
+        ->toBe(['register', 'cart.updated', 'order.placed']);
+});
+
+it('keeps scanning past maxSteps for the end event, and renders it as the final step', function () {
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'step.1', '-2 days +1 minute');
+    seedPathEvent(1, 'step.2', '-2 days +2 minutes');
+    seedPathEvent(1, 'step.3', '-2 days +3 minutes');
+    seedPathEvent(1, 'step.4', '-2 days +4 minutes');
+    seedPathEvent(1, 'step.5', '-2 days +5 minutes');
+    seedPathEvent(1, 'step.6', '-2 days +6 minutes');
+    seedPathEvent(1, 'step.7', '-2 days +7 minutes'); // 8th event, fills maxSteps
+    seedPathEvent(1, 'step.8', '-2 days +9 minutes'); // 9th event, past maxSteps
+    seedPathEvent(1, 'invoice.paid', '-2 days +14 minutes'); // 10th event, the terminus
+
+    $result = pathQuery()->startingAt('register')->maxSteps(8)->endingAt('invoice.paid')->sequences();
+
+    expect($result['total'])->toBe(1);
+
+    $row = $result['rows'][0];
+    $names = array_column($row['steps'], 'name');
+
+    expect($names)->toHaveCount(9)
+        ->and($names[8])->toBe('invoice.paid')
+        ->and($row['completed'])->toBeTrue()
+        ->and($row['truncated'])->toBeTrue()
+        // The terminus's gap is measured from step.8, the event that actually
+        // preceded it in the source stream (5 minutes later), not from the
+        // last rendered step, step.7, which would read 7 minutes.
+        ->and($row['steps'][8]['gap_seconds'])->toBe(300);
+});
+
+it('drops a subject that never reaches the end event, even after scanning past maxSteps', function () {
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'step.1', '-2 days +1 minute');
+    seedPathEvent(1, 'step.2', '-2 days +2 minutes');
+    seedPathEvent(1, 'step.3', '-2 days +3 minutes');
+    seedPathEvent(1, 'step.4', '-2 days +4 minutes');
+    seedPathEvent(1, 'step.5', '-2 days +5 minutes');
+    seedPathEvent(1, 'step.6', '-2 days +6 minutes');
+    seedPathEvent(1, 'step.7', '-2 days +7 minutes');
+    seedPathEvent(1, 'step.8', '-2 days +8 minutes'); // never converts
+
+    $result = pathQuery()->startingAt('register')->maxSteps(8)->endingAt('invoice.paid')->sequences();
+
+    expect($result['total'])->toBe(0);
+});
+
+it('groups events by subject_type so a second morph type does not cross-match ids', function () {
+    // Both a User and a Team share subject_id 1: if eventsFor()'s per-type OR
+    // grouping ever cross-matched ids across types, the User's path would
+    // pick up the Team's events (or vice versa).
+    seedPathEventFor(User::class, 1, 'register', '-2 days');
+    seedPathEventFor(User::class, 1, 'order.placed', '-2 days +1 minute');
+
+    seedPathEventFor(Team::class, 1, 'register', '-2 days');
+    seedPathEventFor(Team::class, 1, 'invoice.paid', '-2 days +1 minute');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect($result['total'])->toBe(2);
+
+    $byType = [];
+
+    foreach ($result['rows'] as $row) {
+        $byType[$row['key']->type] = array_column($row['steps'], 'name');
+    }
+
+    expect($byType[User::class])->toBe(['register', 'order.placed'])
+        ->and($byType[Team::class])->toBe(['register', 'invoice.paid']);
+});
+
+it('ignores page views inside the window', function () {
     config()->set('trail.auto_track.event_name', 'page.viewed');
 
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(1, 'page.viewed', '-2 days +1 minute');
     seedPathEvent(1, 'order.placed', '-2 days +2 minutes');
-    seedPathEvent(1, 'invoice.paid', '-30 days'); // outside the 7 day window
 
     $result = pathQuery()->startingAt('register')->sequences();
 
     expect(array_column($result['rows'][0]['steps'], 'name'))->toBe(['register', 'order.placed']);
+});
+
+it('excludes a subject whose start event happened entirely outside the window', function () {
+    // window() only ever imposes a floor (occurred_at >= since); there is no
+    // ceiling. So an out-of-window event can never sort chronologically after
+    // an in-window anchor - anything before "since" necessarily sorts before
+    // anything at or after it, and the anchor (whichever register occurrence
+    // wins under the "last occurrence" rule) is always inside the window.
+    // Consequently the one place the window bound is actually load-bearing,
+    // rather than redundant with the anchor cutting everything before it, is
+    // cohort selection: a subject whose ONLY start event is outside the
+    // window must not enter the cohort at all.
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'order.placed', '-2 days +1 minute');
+
+    seedPathEvent(2, 'register', '-30 days'); // outside the 7 day window entirely
+    seedPathEvent(2, 'order.placed', '-30 days +1 minute');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect($result['total'])->toBe(1)
+        ->and((string) $result['rows'][0]['key'])->toBe(User::class.'|1');
 });
 
 it('orders rows by how recently the subject started, newest first', function () {
@@ -139,12 +277,21 @@ it('offers the window vocabulary and its most frequent name', function () {
         ->and(pathQuery()->mostFrequentName())->toBe('register');
 });
 
-it('returns nothing when no start event is set or the window is empty', function () {
+it('returns nothing when no start event is set', function () {
     seedPathEvent(1, 'register', '-2 days');
 
-    expect(pathQuery()->sequences())->toBe(['rows' => [], 'total' => 0, 'truncated' => false])
-        ->and(pathQuery()->startingAt('never.happened')->sequences()['total'])->toBe(0)
-        ->and(PathQuery::inWindow(now()->subDays(7))->mostFrequentName())->toBe('register');
+    expect(pathQuery()->sequences())->toBe(['rows' => [], 'total' => 0, 'truncated' => false]);
+});
+
+it('returns nothing when the configured start event never happened in the window', function () {
+    seedPathEvent(1, 'register', '-2 days');
+
+    expect(pathQuery()->startingAt('never.happened')->sequences()['total'])->toBe(0);
+});
+
+it('returns nothing when the window is empty', function () {
+    expect(pathQuery()->startingAt('register')->sequences())
+        ->toBe(['rows' => [], 'total' => 0, 'truncated' => false]);
 });
 
 it('caps the cohort and flags the result as truncated', function () {
@@ -176,4 +323,28 @@ it('does not flag truncation for a cohort under the cap', function () {
     seedPathEvent(2, 'register', '-2 days');
 
     expect(pathQuery()->startingAt('register')->sequences()['truncated'])->toBeFalse();
+});
+
+it('does not flag truncation for a cohort at exactly the cap', function () {
+    // Regression for reading count($cohort) >= SUBJECT_CAP: a cohort with
+    // exactly SUBJECT_CAP subjects and not one more is not truncated.
+    $at = now()->subDays(2);
+    $rows = [];
+
+    foreach (range(1, PathQuery::SUBJECT_CAP) as $id) {
+        $rows[] = [
+            'uuid' => (string) Str::uuid(),
+            'name' => 'register',
+            'subject_type' => User::class,
+            'subject_id' => $id,
+            'occurred_at' => $at,
+        ];
+    }
+
+    TrailEvent::insert($rows);
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect($result['total'])->toBe(PathQuery::SUBJECT_CAP)
+        ->and($result['truncated'])->toBeFalse();
 });
