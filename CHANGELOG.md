@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.2.3 - 2026-07-22
+
+### What's Changed
+
+* Tela de Paths: reconstrói as jornadas reais dos atores by @aqu1les in https://github.com/aqu1les/laravel-trail/pull/10
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.2.2...v1.2.3
+
 ## v1.2.2 - 2026-07-21
 
 v1.2.2 - 2026-07-21
