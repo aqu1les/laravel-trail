@@ -197,6 +197,69 @@ it('falls back to a 7 day window when an update sets an unknown since', function
         ->assertSet('since', '7d');
 });
 
+it('renders the ellipsis chip with the elided count on a completed-and-truncated row', function () {
+    seedPath(1, [
+        'register' => '-2 days',
+        'step.1' => '-2 days +1 minute',
+        'step.2' => '-2 days +2 minutes',
+        'step.3' => '-2 days +3 minutes',
+        'step.4' => '-2 days +4 minutes',
+        'step.5' => '-2 days +5 minutes',
+        'step.6' => '-2 days +6 minutes',
+        'step.7' => '-2 days +7 minutes', // 8th event, fills the default maxSteps(8)
+        'step.8' => '-2 days +9 minutes', // 9th event, elided
+        'invoice.paid' => '-2 days +14 minutes', // the terminus
+    ]);
+
+    Livewire::withQueryParams(['start' => 'register', 'end' => 'invoice.paid'])
+        ->test(Paths::class)
+        ->assertSee('+1 eventos')
+        ->assertViewHas('rows', fn (array $rows) => $rows[0]['elided'] === 1);
+});
+
+it('renders no ellipsis chip when the terminus sits exactly at maxSteps + 1', function () {
+    seedPath(1, [
+        'register' => '-2 days',
+        'step.1' => '-2 days +1 minute',
+        'step.2' => '-2 days +2 minutes',
+        'step.3' => '-2 days +3 minutes',
+        'step.4' => '-2 days +4 minutes',
+        'step.5' => '-2 days +5 minutes',
+        'step.6' => '-2 days +6 minutes',
+        'step.7' => '-2 days +7 minutes', // 8th event, fills the default maxSteps(8)
+        'invoice.paid' => '-2 days +8 minutes', // the 9th event: maxSteps + 1, nothing elided
+    ]);
+
+    Livewire::withQueryParams(['start' => 'register', 'end' => 'invoice.paid'])
+        ->test(Paths::class)
+        ->assertDontSee('trail-step-exit', false)
+        ->assertViewHas('rows', fn (array $rows) => $rows[0]['elided'] === 0 && $rows[0]['truncated'] === true);
+});
+
+it('renders no ellipsis chip on a non-truncated row', function () {
+    seedPath(1, ['register' => '-2 days', 'order.placed' => '-1 day']);
+
+    Livewire::withQueryParams(['start' => 'register'])
+        ->test(Paths::class)
+        ->assertDontSee('trail-step-exit', false)
+        ->assertViewHas('rows', fn (array $rows) => $rows[0]['elided'] === 0 && $rows[0]['truncated'] === false);
+});
+
+it('renders a safely-quoted picker entry for an event name containing an apostrophe', function () {
+    // A name with an apostrophe would break `wire:click="setStart('{{ $n }}')"`
+    // (a malformed JS string literal once Blade escapes the quote inside the
+    // HTML attribute), leaving the menu entry dead. The data-* + $wire.setStart
+    // pattern sidesteps that entirely, so the escaped name only ever needs to
+    // be well-formed as an HTML attribute value, not as JS source.
+    seedPath(1, ["user's.signup" => '-2 days', 'order.placed' => '-1 day']);
+
+    Livewire::withQueryParams(['start' => 'order.placed'])
+        ->test(Paths::class)
+        ->assertSee('data-name="user&#039;s.signup"', false)
+        ->call('setStart', "user's.signup")
+        ->assertSet('startEvent', "user's.signup");
+});
+
 it('links each row to that actor timeline', function () {
     seedPath(7, ['register' => '-2 days', 'order.placed' => '-1 day']);
 

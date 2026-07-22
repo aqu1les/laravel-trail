@@ -3,7 +3,7 @@
    -------------------------------------------------------------
    Framework-agnostic component classes built entirely on the
    --trail-* tokens. Usable in Blade/HTML with no build step.
-   Override behaviour by overriding tokens — not these rules.
+   Override behaviour by overriding tokens - not these rules.
    Prefix: .trail-*
    ============================================================= */
 

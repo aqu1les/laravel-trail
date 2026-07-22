@@ -127,12 +127,13 @@ final class PathQuery
      * One reconstructed path per subject in the cohort, newest starter first.
      *
      * When a row is both completed and truncated, the appended terminus step
-     * was found past maxSteps. Whether events were elided before it depends on
-     * how far past: a terminus at exactly maxSteps + 1 elides nothing, while
-     * one further out does. A consumer must not render an elision marker off
-     * the truncated flag alone.
+     * was found past maxSteps. `elided` carries exactly how many events were
+     * dropped between the last rendered step and that terminus (0 when the
+     * terminus sat at exactly maxSteps + 1, or when the row was not
+     * truncated at all), so a consumer renders an elision marker off that
+     * count directly rather than inferring it from truncated/completed.
      *
-     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, last_at: Carbon}>, total: int, truncated: bool}
+     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int, last_at: Carbon}>, total: int, truncated: bool}
      */
     public function sequences(): array
     {
@@ -260,7 +261,7 @@ final class PathQuery
      * Returns null when the subject does not belong on the screen at all.
      *
      * @param  list<TrailEvent>  $events  oldest first
-     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, last_at: Carbon}|null
+     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int, last_at: Carbon}|null
      */
     private function assemble(string $token, array $events): ?array
     {
@@ -306,6 +307,11 @@ final class PathQuery
         $rawPreviousAt = null;
         $completed = false;
         $truncated = false;
+        // How many events were scanned and dropped, without being rendered as a
+        // step or as the terminus, between the last rendered step and the
+        // appended terminus. Only incremented in the "no terminus yet" branch
+        // below; a terminus found immediately (maxSteps + 1) leaves this at 0.
+        $elided = 0;
         $scanned = 0;
 
         foreach (array_slice($events, $anchor) as $event) {
@@ -336,9 +342,11 @@ final class PathQuery
                 if (! $isTerminus) {
                     // No terminus yet: keep scanning past the cap, but stop
                     // rendering steps, so a converting subject is not confused
-                    // with one that never converts.
+                    // with one that never converts. This event is dropped for
+                    // good (never rendered), so it counts toward elided.
                     $previousName = $event->name;
                     $rawPreviousAt = $at;
+                    $elided++;
 
                     continue;
                 }
@@ -390,6 +398,7 @@ final class PathQuery
             'steps' => $steps,
             'completed' => $completed,
             'truncated' => $truncated,
+            'elided' => $elided,
             'last_at' => $steps[count($steps) - 1]['occurred_at'],
         ];
     }

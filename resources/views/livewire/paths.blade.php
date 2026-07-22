@@ -17,13 +17,16 @@
       <span class="ds-label" style="color: var(--trail-text-subtle); white-space: nowrap">A partir de</span>
 
       <div style="position:relative" x-data="{ open: false }" @click.outside="open = false">
-        <button class="trail-btn trail-btn-secondary" @click="open = !open" @if ($startEvent === '') disabled @endif>
+        <button class="trail-btn trail-btn-secondary" @click="open = !open" @disabled($startEvent === '')>
           <span class="trail-step trail-step-start">{{ $startEvent !== '' ? $startEvent : 'sem eventos' }}</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="trail-menu trail-scroll" x-show="open" x-cloak @click="open = false" style="position:absolute;top:calc(100% + 6px);left:0;z-index:20;max-height:300px;overflow:auto;min-width:200px">
           @foreach ($names as $n)
-            <div class="trail-menu-item" aria-checked="{{ $startEvent === $n ? 'true' : 'false' }}" wire:click="setStart('{{ $n }}')">
+            {{-- data-* + $wire.setStart, not wire:click="setStart('{{ $n }}')": an event
+                 name containing an apostrophe would otherwise break the quoting and
+                 leave this entry dead. Same pattern as events.blade.php's actor menu. --}}
+            <div class="trail-menu-item" aria-checked="{{ $startEvent === $n ? 'true' : 'false' }}" data-name="{{ $n }}" @click="$wire.setStart($el.dataset.name)">
               <span class="trail-menu-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>
               <span class="trail-mono" style="font-size:12px">{{ $n }}</span>
             </div>
@@ -35,7 +38,7 @@
       <span class="ds-label" style="color: var(--trail-text-subtle); white-space: nowrap">Até</span>
 
       <div style="position:relative" x-data="{ open: false }" @click.outside="open = false">
-        <button class="trail-btn trail-btn-secondary" @click="open = !open" @if ($startEvent === '') disabled @endif>
+        <button class="trail-btn trail-btn-secondary" @click="open = !open" @disabled($startEvent === '')>
           @if ($endEvent)
             <span class="trail-step trail-step-end">{{ $endEvent }}</span>
           @else
@@ -50,7 +53,7 @@
           </div>
           @foreach ($names as $n)
             @continue ($n === $startEvent)
-            <div class="trail-menu-item" aria-checked="{{ $endEvent === $n ? 'true' : 'false' }}" wire:click="setEnd('{{ $n }}')">
+            <div class="trail-menu-item" aria-checked="{{ $endEvent === $n ? 'true' : 'false' }}" data-name="{{ $n }}" @click="$wire.setEnd($el.dataset.name)">
               <span class="trail-menu-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg></span>
               <span class="trail-mono" style="font-size:12px">{{ $n }}</span>
             </div>
@@ -94,7 +97,7 @@
       @elseif (count($rows))
         <div style="padding:10px 12px 14px">
           @foreach ($rows as $row)
-            <a href="{{ $row['href'] }}" class="flex items-center gap-3.5 px-3.5 py-3 rounded-lg hover:bg-surface-2" @if (! $loop->last) style="border-bottom:1px solid var(--trail-border)" @endif>
+            <a wire:key="path-{{ $row['type'] }}-{{ $row['id'] }}" href="{{ $row['href'] }}" class="flex items-center gap-3.5 px-3.5 py-3 rounded-lg hover:bg-surface-2" @if (! $loop->last) style="border-bottom:1px solid var(--trail-border)" @endif>
               <div class="flex items-center gap-2.5 shrink-0" style="width:180px">
                 <span class="trail-avatar">{{ $row['initials'] }}</span>
                 <div style="min-width:0">
@@ -106,6 +109,18 @@
               <div class="flex items-center flex-wrap flex-1" style="gap:2px">
                 @foreach ($row['steps'] as $step)
                   @if (! $loop->first)
+                    {{-- When events were elided (terminus found past maxSteps), the
+                         ellipsis chip goes between the last rendered step and the
+                         terminus, not trailing the row. The connector printed right
+                         after it (below) still carries this step's own gap_seconds,
+                         which for the terminus is measured from the last elided
+                         event - so once the ellipsis sits here, that gap honestly
+                         describes "elided event(s) -> terminus", not
+                         "last rendered step -> terminus". --}}
+                    @if ($loop->last && $row['elided'] > 0)
+                      <span class="trail-step-conn"><svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg></span>
+                      <span class="trail-step trail-step-exit">+{{ $row['elided'] }} eventos</span>
+                    @endif
                     <span class="trail-step-conn">
                       <svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg>
                       <span>{{ $step['gap'] }}</span>
@@ -113,14 +128,6 @@
                   @endif
                   <span class="trail-step {{ $step['is_start'] ? 'trail-step-start' : '' }} {{ $step['is_end'] ? 'trail-step-end' : '' }}">{{ $step['name'] }}@if ($step['is_end']) &check; @endif</span>
                 @endforeach
-                {{-- A row can be both completed and truncated (the terminus was found
-                     beyond maxSteps and appended as the final step): only render the
-                     elision marker when the path was cut off before reaching an end,
-                     never off the truncated flag alone. --}}
-                @if ($row['truncated'] && ! $row['completed'])
-                  <span class="trail-step-conn"><svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg></span>
-                  <span class="trail-step trail-step-exit">&hellip;</span>
-                @endif
               </div>
 
               <span class="ds-label shrink-0" style="width:60px; text-align:right">{{ $row['when'] }}</span>

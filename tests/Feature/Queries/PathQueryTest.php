@@ -219,6 +219,44 @@ it('keeps scanning past maxSteps for the end event, and renders it as the final 
         ->and($row['steps'][8]['gap_seconds'])->toBe(300);
 });
 
+it('flags no elision when the terminus sits exactly at maxSteps + 1', function () {
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'step.1', '-2 days +1 minute');
+    seedPathEvent(1, 'checkout', '-2 days +2 minutes'); // the 3rd event, maxSteps(2) + 1
+
+    $result = pathQuery()->startingAt('register')->maxSteps(2)->endingAt('checkout')->sequences();
+
+    expect($result['rows'][0]['truncated'])->toBeTrue()
+        ->and($result['rows'][0]['completed'])->toBeTrue()
+        ->and($result['rows'][0]['elided'])->toBe(0);
+});
+
+it('counts the elided events when the terminus sits further past maxSteps', function () {
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'step.1', '-2 days +1 minute'); // fills maxSteps(2)
+    seedPathEvent(1, 'step.2', '-2 days +2 minutes'); // elided
+    seedPathEvent(1, 'step.3', '-2 days +3 minutes'); // elided
+    seedPathEvent(1, 'step.4', '-2 days +4 minutes'); // elided
+    seedPathEvent(1, 'step.5', '-2 days +5 minutes'); // elided
+    seedPathEvent(1, 'checkout', '-2 days +6 minutes'); // the terminus, maxSteps(2) + 5
+
+    $result = pathQuery()->startingAt('register')->maxSteps(2)->endingAt('checkout')->sequences();
+
+    expect($result['rows'][0]['truncated'])->toBeTrue()
+        ->and($result['rows'][0]['completed'])->toBeTrue()
+        ->and($result['rows'][0]['elided'])->toBe(4);
+});
+
+it('flags no elision on an untruncated path', function () {
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'order.placed', '-2 days +1 minute');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect($result['rows'][0]['truncated'])->toBeFalse()
+        ->and($result['rows'][0]['elided'])->toBe(0);
+});
+
 it('drops a subject that never reaches the end event, even after scanning past maxSteps', function () {
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(1, 'step.1', '-2 days +1 minute');

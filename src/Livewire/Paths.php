@@ -165,6 +165,7 @@ class Paths extends Component
                 'when' => Sample::relative($row['last_at']->getTimestamp() * 1000),
                 'completed' => $row['completed'],
                 'truncated' => $row['truncated'],
+                'elided' => $row['elided'],
                 'steps' => array_map(fn (array $step, int $index) => [
                     'name' => $step['name'],
                     'gap' => self::gapLabel($step['gap_seconds']),
