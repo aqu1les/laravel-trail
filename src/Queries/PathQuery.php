@@ -36,7 +36,7 @@ final class PathQuery
      * subject (thousands of events in the window) cannot make a single read
      * unbounded.
      */
-    private const SCAN_CAP = 1000;
+    public const SCAN_CAP = 1000;
 
     private string $startEvent = '';
 
@@ -125,6 +125,12 @@ final class PathQuery
 
     /**
      * One reconstructed path per subject in the cohort, newest starter first.
+     *
+     * When a row is both completed and truncated, the appended terminus step
+     * was found past maxSteps. Whether events were elided before it depends on
+     * how far past: a terminus at exactly maxSteps + 1 elides nothing, while
+     * one further out does. A consumer must not render an elision marker off
+     * the truncated flag alone.
      *
      * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, last_at: Carbon}>, total: int, truncated: bool}
      */
@@ -272,6 +278,20 @@ final class PathQuery
 
         if ($key === null || $anchor === null) {
             return null;
+        }
+
+        // When collapsing repeats, a run of the start event dates at its FIRST
+        // event everywhere else in this method (see the collapse branch below),
+        // so the anchor must agree: walk it back over any unbroken run of the
+        // same event immediately preceding it. This only spans a consecutive
+        // run - it stops at the first gap - so a separate, earlier start
+        // occurrence (not part of this run) still loses to the last-occurrence
+        // rule above. With collapseRepeats off there is no run dating to keep
+        // consistent with, so the anchor stays on the exact last occurrence.
+        if ($this->collapseRepeats) {
+            while ($anchor > 0 && $events[$anchor - 1]->name === $this->startEvent) {
+                $anchor--;
+            }
         }
 
         $steps = [];

@@ -155,6 +155,41 @@ it('anchors on the LAST occurrence of the start event, not the first', function 
         ->toBe(['register', 'cart.updated', 'order.placed']);
 });
 
+it('walks the anchor back over a repeated start event when collapsing repeats', function () {
+    // register fires twice in a row, then order.placed. With collapseRepeats
+    // on, the run's dating rule says the run is dated at its FIRST event - so
+    // the anchor must walk back to the first register, making this a 120
+    // second journey rather than a 60 second one that started late.
+    seedPathEvent(1, 'register', '-2 days');
+    seedPathEvent(1, 'register', '-2 days +60 seconds');
+    $last = seedPathEvent(1, 'order.placed', '-2 days +120 seconds');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    $steps = $result['rows'][0]['steps'];
+
+    expect(array_column($steps, 'name'))->toBe(['register', 'order.placed'])
+        ->and(array_column($steps, 'gap_seconds'))->toBe([null, 120])
+        ->and($result['rows'][0]['last_at']->eq($last->occurred_at))->toBeTrue();
+});
+
+it('does not walk back past a separate, non-consecutive earlier start occurrence', function () {
+    // The subject fires register, then other events, then register again
+    // later. The walk-back must only span an unbroken run of the same event
+    // immediately before the anchor - it must not undo the last-occurrence
+    // decision and reach back to the first, separate register.
+    seedPathEvent(1, 'register', '-6 days');
+    seedPathEvent(1, 'session.started', '-6 days +1 minute');
+
+    seedPathEvent(1, 'register', '-1 day');
+    seedPathEvent(1, 'cart.updated', '-1 day +1 minute');
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    expect(array_column($result['rows'][0]['steps'], 'name'))
+        ->toBe(['register', 'cart.updated']);
+});
+
 it('keeps scanning past maxSteps for the end event, and renders it as the final step', function () {
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(1, 'step.1', '-2 days +1 minute');
@@ -201,9 +236,13 @@ it('drops a subject that never reaches the end event, even after scanning past m
 });
 
 it('groups events by subject_type so a second morph type does not cross-match ids', function () {
-    // Both a User and a Team share subject_id 1: if eventsFor()'s per-type OR
-    // grouping ever cross-matched ids across types, the User's path would
-    // pick up the Team's events (or vice versa).
+    // Both a User and a Team share subject_id 1. This does not guard against a
+    // degenerate whereIn('subject_id', ...) across types: eventsFor() groups
+    // rows by each row's own stored subject_type, so ids would still land in
+    // the correct group even then. What it DOES guard is that the per-type
+    // constraint is built with orWhere, not where: an AND across two
+    // different subject_type clauses can never match a row, so a regression
+    // to `where` would return zero rows and silently drop both subjects.
     seedPathEventFor(User::class, 1, 'register', '-2 days');
     seedPathEventFor(User::class, 1, 'order.placed', '-2 days +1 minute');
 
@@ -277,6 +316,15 @@ it('offers the window vocabulary and its most frequent name', function () {
         ->and(pathQuery()->mostFrequentName())->toBe('register');
 });
 
+it('breaks a tie in mostFrequentName by name, alphabetically first', function () {
+    seedPathEvent(1, 'zebra.event', '-2 days');
+    seedPathEvent(2, 'zebra.event', '-2 days');
+    seedPathEvent(1, 'apple.event', '-2 days');
+    seedPathEvent(2, 'apple.event', '-2 days');
+
+    expect(pathQuery()->mostFrequentName())->toBe('apple.event');
+});
+
 it('returns nothing when no start event is set', function () {
     seedPathEvent(1, 'register', '-2 days');
 
@@ -323,6 +371,35 @@ it('does not flag truncation for a cohort under the cap', function () {
     seedPathEvent(2, 'register', '-2 days');
 
     expect(pathQuery()->startingAt('register')->sequences()['truncated'])->toBeFalse();
+});
+
+it('drops a subject whose terminus sits beyond SCAN_CAP in-window events', function () {
+    // Bulk-inserted so the assertion stays about the bound rather than about
+    // insert speed, same style as the SUBJECT_CAP tests above.
+    seedPathEvent(1, 'register', '-2 days');
+
+    $at = now()->subDays(2)->addSecond();
+    $rows = [];
+
+    foreach (range(1, PathQuery::SCAN_CAP + 5) as $offset) {
+        $rows[] = [
+            'uuid' => (string) Str::uuid(),
+            'name' => 'noise.event',
+            'subject_type' => User::class,
+            'subject_id' => 1,
+            'occurred_at' => $at->copy()->addSeconds($offset),
+        ];
+    }
+
+    TrailEvent::insert($rows);
+
+    // The terminus sits past the SCAN_CAP-th in-window event scanned after
+    // the anchor, so assemble() never reaches it and the subject is dropped.
+    seedPathEvent(1, 'invoice.paid', $at->copy()->addSeconds(PathQuery::SCAN_CAP + 10)->toIso8601String());
+
+    $result = pathQuery()->startingAt('register')->endingAt('invoice.paid')->sequences();
+
+    expect($result['total'])->toBe(0);
 });
 
 it('does not flag truncation for a cohort at exactly the cap', function () {
