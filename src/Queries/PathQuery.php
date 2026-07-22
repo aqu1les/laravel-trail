@@ -127,11 +127,14 @@ final class PathQuery
      * One reconstructed path per subject in the cohort, newest starter first.
      *
      * When a row is both completed and truncated, the appended terminus step
-     * was found past maxSteps. `elided` carries exactly how many events were
-     * dropped between the last rendered step and that terminus (0 when the
-     * terminus sat at exactly maxSteps + 1, or when the row was not
-     * truncated at all), so a consumer renders an elision marker off that
-     * count directly rather than inferring it from truncated/completed.
+     * was found past maxSteps. `elided` carries how many distinct consecutive
+     * event runs were dropped between the last rendered step and that
+     * terminus (0 when the terminus sat at exactly maxSteps + 1, or when the
+     * row was not truncated at all), so a consumer renders an elision marker
+     * off that count directly rather than inferring it from
+     * truncated/completed. It counts runs, not raw events: a dropped run of
+     * repeated events (with collapseRepeats on) counts once, the same way a
+     * rendered run counts as a single step.
      *
      * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int, last_at: Carbon}>, total: int, truncated: bool}
      */
@@ -307,10 +310,13 @@ final class PathQuery
         $rawPreviousAt = null;
         $completed = false;
         $truncated = false;
-        // How many events were scanned and dropped, without being rendered as a
-        // step or as the terminus, between the last rendered step and the
-        // appended terminus. Only incremented in the "no terminus yet" branch
-        // below; a terminus found immediately (maxSteps + 1) leaves this at 0.
+        // How many distinct consecutive event runs were scanned and dropped,
+        // without being rendered as a step or as the terminus, between the
+        // last rendered step and the appended terminus. Only incremented in
+        // the "no terminus yet" branch below, and only once per run (a
+        // repeat of the run's own name collapses via the check above this
+        // branch, before it can be counted again); a terminus found
+        // immediately (maxSteps + 1) leaves this at 0.
         $elided = 0;
         $scanned = 0;
 
@@ -351,16 +357,28 @@ final class PathQuery
                     continue;
                 }
 
-                // Found it past the cap: render it as the closing step. Its gap is
-                // measured from the event that actually preceded it in the source
-                // stream, not from the last rendered step, since rendering already
-                // stopped maxSteps steps ago.
+                // Found it past the cap: render it as the closing step. When
+                // events were actually elided, its gap is measured from the
+                // event that actually preceded it in the source stream ($rawPreviousAt),
+                // not from the last rendered step, because the ellipsis chip sits
+                // between them and the gap describes "elided run -> terminus".
+                // But when nothing was elided ($elided === 0, e.g. the terminus sat
+                // at exactly maxSteps + 1), collapseRepeats may still have swallowed
+                // a run of the last rendered step's own name without incrementing
+                // elided (a repeat collapse just updates $rawPreviousAt and
+                // continues). In that case there is no ellipsis chip to anchor a
+                // "from the raw last event" gap against, so the gap must be measured
+                // from $previousAt, the first event of that last rendered run - the
+                // same convention every other gap in this method follows, so gaps
+                // keep summing back to the total path duration.
+                $terminusFrom = $elided === 0 ? $previousAt : $rawPreviousAt;
+
                 $steps[] = [
                     'name' => $event->name,
                     'occurred_at' => $at,
-                    'gap_seconds' => $rawPreviousAt === null
+                    'gap_seconds' => $terminusFrom === null
                         ? null
-                        : max(0, $at->getTimestamp() - $rawPreviousAt->getTimestamp()),
+                        : max(0, $at->getTimestamp() - $terminusFrom->getTimestamp()),
                 ];
 
                 $completed = true;

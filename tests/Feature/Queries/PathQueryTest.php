@@ -231,6 +231,29 @@ it('flags no elision when the terminus sits exactly at maxSteps + 1', function (
         ->and($result['rows'][0]['elided'])->toBe(0);
 });
 
+it('dates the terminus gap from the first event of a collapsed run, not the last', function () {
+    // A, B(t1), B(t2), B(t3), checkout(t4) with maxSteps(2): steps render as
+    // [A, B], the three B's collapse into one run so nothing is elided, and
+    // checkout is appended past the cap. Its gap must be measured from t1 (B's
+    // first occurrence), the same convention every other gap in this method
+    // follows - not from t3 (the raw last-scanned event), which is only
+    // correct when an ellipsis chip actually sits between the run and the
+    // terminus (i.e. when something was elided).
+    seedPathEvent(1, 'A', '-2 days');
+    seedPathEvent(1, 'B', '-2 days +1 minute');
+    seedPathEvent(1, 'B', '-2 days +2 minutes');
+    seedPathEvent(1, 'B', '-2 days +3 minutes');
+    seedPathEvent(1, 'checkout', '-2 days +4 minutes');
+
+    $result = pathQuery()->startingAt('A')->maxSteps(2)->endingAt('checkout')->sequences();
+
+    $row = $result['rows'][0];
+
+    expect(array_column($row['steps'], 'name'))->toBe(['A', 'B', 'checkout'])
+        ->and($row['elided'])->toBe(0)
+        ->and($row['steps'][2]['gap_seconds'])->toBe(180); // t4 - t1, not t4 - t3 (which would be 60)
+});
+
 it('counts the elided events when the terminus sits further past maxSteps', function () {
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(1, 'step.1', '-2 days +1 minute'); // fills maxSteps(2)

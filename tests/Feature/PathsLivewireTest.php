@@ -213,7 +213,9 @@ it('renders the ellipsis chip with the elided count on a completed-and-truncated
 
     Livewire::withQueryParams(['start' => 'register', 'end' => 'invoice.paid'])
         ->test(Paths::class)
-        ->assertSee('+1 eventos')
+        // Fixed for pt-BR pluralization: a count of exactly one elided run
+        // reads "evento" (singular), not "eventos".
+        ->assertSee('+1 evento')
         ->assertViewHas('rows', fn (array $rows) => $rows[0]['elided'] === 1);
 });
 
@@ -243,6 +245,53 @@ it('renders no ellipsis chip on a non-truncated row', function () {
         ->test(Paths::class)
         ->assertDontSee('trail-step-exit', false)
         ->assertViewHas('rows', fn (array $rows) => $rows[0]['elided'] === 0 && $rows[0]['truncated'] === false);
+});
+
+it('renders a singular "+1 evento" chip when exactly one run is elided', function () {
+    seedPath(1, [
+        'register' => '-2 days',
+        'step.1' => '-2 days +1 minute',
+        'step.2' => '-2 days +2 minutes',
+        'step.3' => '-2 days +3 minutes',
+        'step.4' => '-2 days +4 minutes',
+        'step.5' => '-2 days +5 minutes',
+        'step.6' => '-2 days +6 minutes',
+        'step.7' => '-2 days +7 minutes', // 8th event, fills the default maxSteps(8)
+        'step.8' => '-2 days +9 minutes', // 9th event, elided (1 run)
+        'invoice.paid' => '-2 days +14 minutes', // the terminus
+    ]);
+
+    Livewire::withQueryParams(['start' => 'register', 'end' => 'invoice.paid'])
+        ->test(Paths::class)
+        ->assertSee('+1 evento')
+        ->assertDontSee('+1 eventos');
+});
+
+it('renders a trailing open-ended marker when a path is truncated with no terminus set', function () {
+    seedPath(1, [
+        'register' => '-2 days',
+        'step.1' => '-2 days +1 minute',
+        'step.2' => '-2 days +2 minutes',
+        'step.3' => '-2 days +3 minutes',
+        'step.4' => '-2 days +4 minutes',
+        'step.5' => '-2 days +5 minutes',
+        'step.6' => '-2 days +6 minutes',
+        'step.7' => '-2 days +7 minutes', // 8th event, fills the default maxSteps(8)
+        'step.8' => '-2 days +8 minutes', // 9th event, truncated away, no terminus configured
+    ]);
+
+    Livewire::withQueryParams(['start' => 'register'])
+        ->test(Paths::class)
+        ->assertSee('trail-step-exit', false)
+        ->assertViewHas('rows', fn (array $rows) => $rows[0]['truncated'] === true && $rows[0]['completed'] === false);
+});
+
+it('renders neither marker on a short, untruncated path', function () {
+    seedPath(1, ['register' => '-2 days', 'order.placed' => '-1 day']);
+
+    Livewire::withQueryParams(['start' => 'register'])
+        ->test(Paths::class)
+        ->assertDontSee('trail-step-exit', false);
 });
 
 it('renders a safely-quoted picker entry for an event name containing an apostrophe', function () {

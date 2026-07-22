@@ -119,7 +119,7 @@
                          "last rendered step -> terminus". --}}
                     @if ($loop->last && $row['elided'] > 0)
                       <span class="trail-step-conn"><svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg></span>
-                      <span class="trail-step trail-step-exit">+{{ $row['elided'] }} eventos</span>
+                      <span class="trail-step trail-step-exit">+{{ $row['elided'] }} {{ $row['elided'] === 1 ? 'evento' : 'eventos' }}</span>
                     @endif
                     <span class="trail-step-conn">
                       <svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg>
@@ -128,6 +128,21 @@
                   @endif
                   <span class="trail-step {{ $step['is_start'] ? 'trail-step-start' : '' }} {{ $step['is_end'] ? 'trail-step-end' : '' }}">{{ $step['name'] }}@if ($step['is_end']) &check; @endif</span>
                 @endforeach
+
+                {{-- The two markers are mutually exclusive by construction: `elided`
+                     can only be non-zero when an end event is set (it is only ever
+                     incremented while scanning past maxSteps for a terminus), so
+                     the case above never fires when the row has no terminus at
+                     all. This is the other case: a path cut at maxSteps with no
+                     terminus configured has no counted elision to report, but the
+                     journey still continues past what is rendered, so an
+                     open-ended marker (no gap label - the remaining duration is
+                     unknown) goes after the last step instead of before a
+                     terminus that does not exist. --}}
+                @if ($row['truncated'] && ! $row['completed'])
+                  <span class="trail-step-conn"><svg width="20" height="8" viewBox="0 0 20 8" fill="none" stroke="var(--trail-text-faint)" stroke-width="1.5"><path d="M0 4h16M13 1l4 3-4 3"/></svg></span>
+                  <span class="trail-step trail-step-exit">mais eventos&hellip;</span>
+                @endif
               </div>
 
               <span class="ds-label shrink-0" style="width:60px; text-align:right">{{ $row['when'] }}</span>
