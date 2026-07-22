@@ -380,3 +380,25 @@
   transition: border-color var(--trail-dur-fast) var(--trail-ease), background var(--trail-dur-fast) var(--trail-ease);
 }
 .trail-tl-card:hover { border-color: var(--trail-border-strong); background: var(--trail-surface-2); }
+
+/* ---------- Step chips (Paths) ---------- */
+/* one event in a reconstructed path */
+.trail-step {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--trail-font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--trail-surface-3);
+  color: var(--trail-text-muted);
+  border: 1px solid var(--trail-border);
+  white-space: nowrap;
+}
+.trail-step-start { background: var(--trail-accent-subtle); color: var(--trail-accent); border-color: var(--trail-accent-border); }
+.trail-step-end   { background: var(--trail-info-subtle); color: var(--trail-info); border-color: transparent; }
+.trail-step-exit  { background: transparent; color: var(--trail-text-faint); border-style: dashed; }
+
+/* the arrow between two steps, carrying the elapsed time under it */
+.trail-step-conn { display: inline-flex; flex-direction: column; align-items: center; margin: 0 3px; }
+.trail-step-conn span { font: 400 9px var(--trail-font-mono); color: var(--trail-text-faint); margin-top: 1px; }

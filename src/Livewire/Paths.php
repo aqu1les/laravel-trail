@@ -49,6 +49,11 @@ class Paths extends Component
             $this->startEvent = $this->paths()->mostFrequentName() ?? '';
         }
 
+        // An empty ?end= (e.g. a hand-typed URL) means the same as "no terminus".
+        if ($this->endEvent === '') {
+            $this->endEvent = null;
+        }
+
         // A path from an event to itself has no shape; drop the terminus.
         if ($this->endEvent === $this->startEvent) {
             $this->endEvent = null;
@@ -158,6 +163,7 @@ class Paths extends Component
                 'initials' => Sample::initials($actor['name']),
                 'href' => route('trail.timeline', ['actor' => (string) $key]),
                 'when' => Sample::relative($row['last_at']->getTimestamp() * 1000),
+                'completed' => $row['completed'],
                 'truncated' => $row['truncated'],
                 'steps' => array_map(fn (array $step, int $index) => [
                     'name' => $step['name'],

@@ -172,9 +172,16 @@ it('shows the empty state when no actor completes the path', function () {
     seedPath(1, ['register' => '-2 days']);
 
     Livewire::test(Paths::class)
-        ->call('setEnd', 'register')
         ->set('endEvent', 'never.happened')
         ->assertSee('Nenhum ator neste caminho');
+});
+
+it('normalises an empty ?end= to null in mount', function () {
+    seedPath(1, ['register' => '-2 days']);
+
+    Livewire::withQueryParams(['end' => ''])
+        ->test(Paths::class)
+        ->assertSet('endEvent', null);
 });
 
 it('shows a dedicated empty state when the window has no events at all', function () {
