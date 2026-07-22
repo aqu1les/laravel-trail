@@ -140,6 +140,68 @@ final class Sample
         ];
     }
 
+    /**
+     * Representative reconstructed paths for the Paths screen in demo mode.
+     * Already in the display shape the screen consumes, newest first.
+     *
+     * @return list<array{name: string, type: string, id: string, when: string, steps: list<array{name: string, gap: ?string}>}>
+     */
+    public static function paths(): array
+    {
+        // One template per actor (8 actors, 8 templates below): no modulo
+        // wraparound, so each row's shape and age are exactly what they
+        // appear to be, with no wrap-induced repeat across the eight rows.
+        $templates = [
+            [['register', null], ['number_verified', '+38s'], ['whatsapp.connected', '+2min'], ['order.placed', '+1h']],
+            [['register', null], ['number_verified', '+1min'], ['order.placed', '+9min'], ['invoice.paid', '+3h']],
+            [['register', null], ['number_verified', '+22s'], ['order.placed', '+5min']],
+            [['register', null], ['number_verified', '+2min'], ['whatsapp.connected', '+40s'], ['cart.updated', '+6min']],
+            [['register', null], ['number_verified', '+1min'], ['invoice.paid', '+2h']],
+            [['register', null]],
+            // Deliberately longer than PathQuery::DEFAULT_MAX_STEPS (8), so the
+            // truncated/elided marker states are actually reachable in demo mode
+            // instead of being hardcoded false for every row.
+            [
+                ['register', null],
+                ['number_verified', '+38s'],
+                ['onboarding.step_completed', '+2min'],
+                ['whatsapp.connected', '+45s'],
+                ['session.started', '+5min'],
+                ['cart.updated', '+8min'],
+                ['user.logged_in', '+12min'],
+                ['order.placed', '+20min'],
+                ['user.signed_up', '+40min'],
+                ['invoice.paid', '+2h'],
+            ],
+            [['register', null], ['user.logged_in', '+3min'], ['session.started', '+30s'], ['order.placed', '+15min']],
+        ];
+
+        // Monotonically increasing, so actors render strictly newest-first.
+        // This "when" value stands in for when the journey STARTED, and that
+        // is exactly the invariant PathQuery::cohort() enforces for real
+        // data: rows are ordered by how recently the start event fired, newest
+        // first, and the screen's "when" column renders that same anchor.
+        $agoMinutes = [4, 12, 26, 41, 60, 120, 180, 300];
+
+        $now = self::nowMs();
+        $rows = [];
+
+        foreach (self::actors() as $index => $actor) {
+            $template = $templates[$index % count($templates)];
+            $minutesAgo = $agoMinutes[$index % count($agoMinutes)];
+
+            $rows[] = [
+                'name' => $actor['name'],
+                'type' => $actor['type'],
+                'id' => $actor['id'],
+                'when' => self::relative($now - $minutesAgo * 60000),
+                'steps' => array_map(fn (array $step) => ['name' => $step[0], 'gap' => $step[1]], $template),
+            ];
+        }
+
+        return $rows;
+    }
+
     /** Relative time label in Portuguese, from an epoch-millis timestamp. */
     public static function relative(int $ts): string
     {

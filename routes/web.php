@@ -11,6 +11,7 @@ use Trail\Trail\Http\Controllers\DashboardController;
 use Trail\Trail\Http\Middleware\Authorize;
 use Trail\Trail\Livewire\Events;
 use Trail\Trail\Livewire\Overview;
+use Trail\Trail\Livewire\Paths;
 use Trail\Trail\Livewire\SubjectTimeline;
 
 // View-gated: dashboard screens + read API. "Who can see the data."
@@ -18,6 +19,7 @@ Route::middleware(Authorize::class.':view')->group(function () {
     // Dashboard screens - full-page Livewire components on real tracking data.
     Route::get('/', Overview::class)->name('dashboard');
     Route::get('events', Events::class)->name('events');
+    Route::get('paths', Paths::class)->name('paths');
     Route::get('timeline', SubjectTimeline::class)->name('timeline');
     // Static design-system showcase (no Livewire needed).
     Route::get('design-system', [DashboardController::class, 'designSystem'])->name('design-system');
@@ -26,6 +28,7 @@ Route::middleware(Authorize::class.':view')->group(function () {
     if (app()->environment('local')) {
         Route::get('demo', Overview::class)->defaults('demo', true)->name('demo');
         Route::get('demo/events', Events::class)->defaults('demo', true)->name('demo.events');
+        Route::get('demo/paths', Paths::class)->defaults('demo', true)->name('demo.paths');
         Route::get('demo/timeline', SubjectTimeline::class)->defaults('demo', true)->name('demo.timeline');
     }
 
