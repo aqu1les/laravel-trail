@@ -254,10 +254,11 @@ customization with `Trail::routes()`, and the Amplitude migration note.
 
 Trail ships an embedded dashboard at `/trail` (configurable via `trail.path`), in the spirit of Pulse and Telescope - dense, dark by default, server-rendered with Blade + Livewire. No build step and no `npm`: the styles are plain CSS driven by design tokens.
 
-Three screens are built today, on your real data:
+Four screens are built today, on your real data:
 
 - **Overview** (`/trail`) - totals, unique actors, a time series with hour/day/week granularity, top events and most-active actors.
 - **Events** (`/trail/events`) - a filterable, live-updating stream with a payload drawer (properties, context, raw JSON). Page-view events are hidden by default; a toggle button reveals them.
+- **Paths** (`/trail/paths`) - the real ordered journeys actors took after a start event, one row per actor, with an optional end event to narrow to completed paths. See the [Paths](https://github.com/aqu1les/laravel-trail/wiki/Paths) wiki page.
 - **Subject Timeline** (`/trail/timeline`) - every event of a single actor, grouped by day, with inline payload expansion. Page-view events are hidden by default; a toggle button reveals them.
 
 There's also a **Design System** page at `/trail/design-system`, and - in your `local` environment only - **demo** versions of every screen under `/trail/demo/*`, so you can preview the UI with sample data before any real events land. Funnels is the one screen still on the roadmap.
@@ -458,7 +459,7 @@ Shipped:
 - ✅ Pre-computed aggregates + `trail:aggregate`, `trail:prune`, `trail:install` commands
 - ✅ Automatic context capture (HTTP + console/queue) with extensible `ContextCaptureContract` + opt-in page-view tracking
 - ✅ Auto-registered routes, JSON API, dashboard auth gate
-- ✅ Embedded Blade + Livewire dashboard - Overview, Events, Subject Timeline, design-system showcase, token theming
+- ✅ Embedded Blade + Livewire dashboard - Overview, Events, Paths, Subject Timeline, design-system showcase, token theming
 
 Next up:
 
