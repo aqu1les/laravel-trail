@@ -42,14 +42,16 @@ class Paths extends Component
     {
         $this->demo = $demo;
 
-        // A hand-typed ?since= would otherwise leave every segment unlit.
-        if (! in_array($this->since, self::PERIODS, true)) {
-            $this->since = '7d';
-        }
+        $this->guardSince();
 
         // Opening on the busiest event beats opening on nothing at all.
         if ($this->startEvent === '') {
             $this->startEvent = $this->paths()->mostFrequentName() ?? '';
+        }
+
+        // A path from an event to itself has no shape; drop the terminus.
+        if ($this->endEvent === $this->startEvent) {
+            $this->endEvent = null;
         }
     }
 
@@ -67,7 +69,7 @@ class Paths extends Component
 
     public function setEnd(?string $name): void
     {
-        $this->endEvent = ($name === null || $name === '') ? null : $name;
+        $this->endEvent = ($name === null || $name === '' || $name === $this->startEvent) ? null : $name;
         $this->page = 1;
     }
 
@@ -85,7 +87,17 @@ class Paths extends Component
     /** Changing the window changes the result set, so the old page number is meaningless. */
     public function updatedSince(): void
     {
+        $this->guardSince();
         $this->page = 1;
+    }
+
+    // A hand-typed ?since= or a $set('since', ...) would otherwise leave every
+    // segment unlit, and the invalid value would then round-trip into the URL.
+    private function guardSince(): void
+    {
+        if (! in_array($this->since, self::PERIODS, true)) {
+            $this->since = '7d';
+        }
     }
 
     /** Lower bound of the selected period window. */

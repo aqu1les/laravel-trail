@@ -23,7 +23,7 @@ it('renders the Events Explorer screen', function () {
 it('renders the Paths screen', function () {
     $this->get('/trail/paths')
         ->assertOk()
-        ->assertSee('Paths', false);
+        ->assertSee('atores', false);
 });
 
 it('renders the Subject Timeline screen', function () {

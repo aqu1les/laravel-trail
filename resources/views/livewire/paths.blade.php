@@ -25,15 +25,20 @@
 
       @if ($totalPages > 1)
         <div class="flex items-center gap-2 pt-4">
-          @for ($i = 1; $i <= $totalPages; $i++)
-            <button class="{{ $page === $i ? 'is-active' : '' }}" wire:click="gotoPage({{ $i }})">{{ $i }}</button>
-          @endfor
+          <button wire:click="gotoPage({{ max(1, $page - 1) }})" @disabled($page <= 1)>Anterior</button>
+          <span class="ds-label">Página {{ $page }} de {{ $totalPages }}</span>
+          <button wire:click="gotoPage({{ min($totalPages, $page + 1) }})" @disabled($page >= $totalPages)>Próxima</button>
         </div>
       @endif
     @else
       <div class="trail-empty">
-        <div class="trail-empty-title">Nenhum ator neste caminho</div>
-        <div class="trail-empty-body">Nenhum ator saiu de <b>{{ $startEvent }}</b>@if ($endEvent) e chegou a <b>{{ $endEvent }}</b>@endif nesta janela.</div>
+        @if ($startEvent === '')
+          <div class="trail-empty-title">Nenhum evento nesta janela</div>
+          <div class="trail-empty-body">Não há eventos registrados neste período para reconstruir um caminho.</div>
+        @else
+          <div class="trail-empty-title">Nenhum ator neste caminho</div>
+          <div class="trail-empty-body">Nenhum ator saiu de <b>{{ $startEvent }}</b>@if ($endEvent) e chegou a <b>{{ $endEvent }}</b>@endif nesta janela.</div>
+        @endif
       </div>
     @endif
   </div>
