@@ -311,6 +311,33 @@ it('renders a safely-quoted picker entry for an event name containing an apostro
         ->assertSet('startEvent', "user's.signup");
 });
 
+it('renders the when column by journey start, matching the recency sort order', function () {
+    // Actor A registered 1h ago and has done nothing since. Actor B
+    // registered 2h ago but placed an order just 5 minutes ago. cohort()
+    // orders by how recently the START event fired, so A (1h ago) sorts
+    // before B (2h ago) - and the rendered "when" must follow that same
+    // anchor (the start event), not each row's last step, or a
+    // recency-sorted list would show a recency column running backwards
+    // (B's order.placed, 5 min ago, would otherwise render above A's 1h).
+    seedPath(1, ['register' => '-1 hour']);
+    seedPath(2, ['register' => '-2 hours', 'order.placed' => '-5 minutes']);
+
+    Livewire::withQueryParams(['start' => 'register'])
+        ->test(Paths::class)
+        ->assertViewHas('rows', function (array $rows) {
+            expect($rows)->toHaveCount(2)
+                ->and($rows[0]['id'])->toBe('1')
+                ->and($rows[1]['id'])->toBe('2');
+
+            // Both labels are in the "h" bucket at this fixture's ages, so a
+            // direct string comparison is stable without flaking on seconds.
+            expect($rows[0]['when'])->toBe('há 1 h')
+                ->and($rows[1]['when'])->toBe('há 2 h');
+
+            return true;
+        });
+});
+
 it('links each row to that actor timeline', function () {
     seedPath(7, ['register' => '-2 days', 'order.placed' => '-1 day']);
 

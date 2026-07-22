@@ -165,7 +165,12 @@ class Paths extends Component
                 'id' => $actor['id'],
                 'initials' => Sample::initials($actor['name']),
                 'href' => route('trail.timeline', ['actor' => (string) $key]),
-                'when' => Sample::relative($row['last_at']->getTimestamp() * 1000),
+                // The journey's FIRST step, not its last: cohort() orders rows
+                // by how recently the subject started (max(occurred_at) desc
+                // of the start event), so the rendered "when" must match that
+                // same anchor or a recency-sorted list would show a recency
+                // column that runs backwards.
+                'when' => Sample::relative($row['steps'][0]['occurred_at']->getTimestamp() * 1000),
                 'completed' => $row['completed'],
                 'truncated' => $row['truncated'],
                 'elided' => $row['elided'],

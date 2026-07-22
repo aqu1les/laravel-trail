@@ -50,7 +50,11 @@ it('reconstructs a path in occurred_at order, with the gap between steps', funct
         ->and((string) $result['rows'][0]['key'])->toBe(User::class.'|1')
         ->and($result['rows'][0]['completed'])->toBeFalse()
         ->and($result['rows'][0]['truncated'])->toBeFalse()
-        ->and($result['rows'][0]['last_at']->eq($last->occurred_at))->toBeTrue();
+        // eventsFor() reads via toBase() now (stdClass rows, no Eloquent casts):
+        // occurred_at must still come back as a real Carbon instance, on every
+        // step, for every driver.
+        ->and($steps[0]['occurred_at'])->toBeInstanceOf(Carbon::class)
+        ->and($steps[2]['occurred_at']->eq($last->occurred_at))->toBeTrue();
 });
 
 it('keeps only subjects that fired the start event, and drops what preceded it', function () {
@@ -170,7 +174,7 @@ it('walks the anchor back over a repeated start event when collapsing repeats', 
 
     expect(array_column($steps, 'name'))->toBe(['register', 'order.placed'])
         ->and(array_column($steps, 'gap_seconds'))->toBe([null, 120])
-        ->and($result['rows'][0]['last_at']->eq($last->occurred_at))->toBeTrue();
+        ->and($steps[1]['occurred_at']->eq($last->occurred_at))->toBeTrue();
 });
 
 it('does not walk back past a separate, non-consecutive earlier start occurrence', function () {
@@ -461,6 +465,61 @@ it('drops a subject whose terminus sits beyond SCAN_CAP in-window events', funct
     $result = pathQuery()->startingAt('register')->endingAt('invoice.paid')->sequences();
 
     expect($result['total'])->toBe(0);
+});
+
+it('caps the in-window event read and flags the result truncated, dropping whole trailing subjects', function () {
+    // Three subjects, ordered by subject_id (1, 2, 3), same as eventsFor()'s
+    // own ORDER BY. Subjects 1 and 2 together contribute exactly EVENT_CAP
+    // events; subject 3's events sit entirely past the cap and so never make
+    // it into the read at all - eventsFor() drops it wholesale rather than
+    // handing assemble() a partial event list for it.
+    $at = now()->subDays(2);
+
+    seedPathEvent(1, 'register', $at->toIso8601String());
+    seedPathEvent(1, 'a', $at->copy()->addSecond()->toIso8601String());
+    seedPathEvent(1, 'order.placed', $at->copy()->addSeconds(2)->toIso8601String());
+
+    $subject2Count = PathQuery::EVENT_CAP - 3;
+    $rows = [];
+
+    // First of subject 2's events is its own register, so it stays in the cohort.
+    $rows[] = [
+        'uuid' => (string) Str::uuid(),
+        'name' => 'register',
+        'subject_type' => User::class,
+        'subject_id' => 2,
+        'occurred_at' => $at,
+    ];
+
+    foreach (range(1, $subject2Count - 1) as $offset) {
+        $rows[] = [
+            'uuid' => (string) Str::uuid(),
+            'name' => 'noise.event',
+            'subject_type' => User::class,
+            'subject_id' => 2,
+            'occurred_at' => $at->copy()->addSeconds($offset),
+        ];
+    }
+
+    foreach (array_chunk($rows, 500) as $chunk) {
+        TrailEvent::insert($chunk);
+    }
+
+    seedPathEvent(3, 'register', $at->toIso8601String());
+    seedPathEvent(3, 'order.placed', $at->copy()->addSecond()->toIso8601String());
+
+    $result = pathQuery()->startingAt('register')->sequences();
+
+    $keys = array_map(fn (array $row) => (string) $row['key'], $result['rows']);
+
+    expect($result['truncated'])->toBeTrue()
+        ->and($keys)->toContain(User::class.'|1')
+        ->and($keys)->toContain(User::class.'|2')
+        ->and($keys)->not->toContain(User::class.'|3')
+        // Subject 1 sat entirely before the cap boundary, so its path is whole,
+        // not corrupted by the cap cutting mid-subject.
+        ->and(array_column($result['rows'][array_search(User::class.'|1', $keys, true)]['steps'], 'name'))
+        ->toBe(['register', 'a', 'order.placed']);
 });
 
 it('does not flag truncation for a cohort at exactly the cap', function () {

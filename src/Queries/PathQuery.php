@@ -15,10 +15,12 @@ use Trail\Trail\Models\TrailEvent;
  * The inverse of FunnelReport. Instead of scoring a sequence you already know,
  * it reconstructs the sequences from the data.
  *
- * The cohort is bounded in SQL before anything is read, so a busy window costs
- * at most SUBJECT_CAP subjects' history rather than the whole table. Assembly
- * runs in PHP on purpose: ordering a path per subject would otherwise need
- * window functions, which SQLite and older MySQL do not offer.
+ * The cohort is bounded in SQL to at most SUBJECT_CAP subjects, and the events
+ * read for that cohort are themselves bounded in SQL to at most EVENT_CAP rows
+ * (see eventsFor()), so a busy window costs at most a fixed number of rows
+ * rather than the whole table. Assembly runs in PHP on purpose: ordering a
+ * path per subject would otherwise need window functions, which SQLite and
+ * older MySQL do not offer.
  *
  * @internal Not covered by the package's backwards-compatibility promise.
  */
@@ -26,6 +28,24 @@ final class PathQuery
 {
     /** How many subjects a single read may reconstruct. */
     public const SUBJECT_CAP = 1000;
+
+    /**
+     * How many in-window events (across the whole cohort) a single read may
+     * pull back, applied as a SQL LIMIT in eventsFor(). Ordinary traffic never
+     * comes close: a cohort of SUBJECT_CAP subjects rendering at most
+     * DEFAULT_MAX_STEPS steps each accounts for SUBJECT_CAP * DEFAULT_MAX_STEPS
+     * = 8,000 rows at most, since the screen never asks for more steps than
+     * that. EVENT_CAP sits comfortably above that (2.5x), so a busy but
+     * ordinary window is never clipped; it exists purely for the pathological
+     * case (a handful of subjects with thousands of noisy in-window events
+     * each), where without a bound the read scales with the cohort's whole
+     * history instead of with what the screen can ever render. eventsFor()
+     * orders rows by subject before anything else, so hitting the cap drops
+     * whole trailing subjects from the read (their path is silently absent,
+     * the same shape as any other dropped subject), rather than truncating a
+     * rendered subject's events mid-path.
+     */
+    public const EVENT_CAP = 20_000;
 
     /**
      * How many steps a single path may carry before it is cut.
@@ -37,9 +57,10 @@ final class PathQuery
 
     /**
      * How many of a subject's in-window events assemble() will scan looking for
-     * the end event once maxSteps is behind it. A hard bound so a pathological
-     * subject (thousands of events in the window) cannot make a single read
-     * unbounded.
+     * the end event once maxSteps is behind it. A hard bound on the PHP loop,
+     * so one subject with a very noisy in-window history cannot make a single
+     * subject's assembly scan indefinitely (the read itself is bounded
+     * separately, by EVENT_CAP).
      */
     public const SCAN_CAP = 1000;
 
@@ -141,7 +162,7 @@ final class PathQuery
      * repeated events (with collapseRepeats on) counts once, the same way a
      * rendered run counts as a single step.
      *
-     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int, last_at: Carbon}>, total: int, truncated: bool}
+     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}>, total: int, truncated: bool}
      */
     public function sequences(): array
     {
@@ -157,13 +178,13 @@ final class PathQuery
             return $empty;
         }
 
-        $eventsBySubject = $this->eventsFor($cohort['tokens']);
+        $events = $this->eventsFor($cohort['tokens']);
         $rows = [];
 
         // Iterate the cohort, not the grouped events: the cohort already carries
         // the recency ordering the screen renders in.
         foreach ($cohort['tokens'] as $token) {
-            $row = $this->assemble($token, $eventsBySubject[$token] ?? []);
+            $row = $this->assemble($token, $events['grouped'][$token] ?? []);
 
             if ($row !== null) {
                 $rows[] = $row;
@@ -173,7 +194,12 @@ final class PathQuery
         return [
             'rows' => $rows,
             'total' => count($rows),
-            'truncated' => $cohort['truncated'],
+            // Either cap being hit means the read is incomplete: a cohort
+            // truncated at SUBJECT_CAP, or an event read truncated at
+            // EVENT_CAP (which silently drops whole trailing subjects). One
+            // flag covers both; the screen's warning banner does not need to
+            // know which cap fired.
+            'truncated' => $cohort['truncated'] || $events['truncated'],
         ];
     }
 
@@ -214,18 +240,24 @@ final class PathQuery
     }
 
     /**
-     * Every in-window event for the cohort, grouped by subject and oldest first.
+     * Every in-window event for the cohort, grouped by subject and oldest
+     * first, bounded to at most EVENT_CAP rows.
      *
      * The ids are grouped by subject_type and applied as one OR clause per type:
      * a composite whereIn over a column pair is not portable across the three
      * drivers the package supports. EventStreamQuery::applySearch does the same.
      *
-     * Only the four columns assemble() reads are selected: hydrating the
-     * properties/context JSON casts and the value decimal cast for up to
-     * SUBJECT_CAP subjects' whole in-window history is pure waste here.
+     * Reads via toBase(): only the four columns assemble() reads are selected,
+     * and hydrating the properties/context JSON casts and the value decimal
+     * cast (plus the Eloquent model itself) for up to EVENT_CAP rows is pure
+     * waste here. occurred_at is parsed back into a Carbon by hand as a
+     * result (see parseTimestamp()).
+     *
+     * Reads one row past EVENT_CAP so truncation can be told from "exactly at
+     * the cap", the same trick cohort() uses for SUBJECT_CAP.
      *
      * @param  list<string>  $cohort
-     * @return array<string, list<TrailEvent>>
+     * @return array{grouped: array<string, list<object{name: string, occurred_at: Carbon}>>, truncated: bool}
      */
     private function eventsFor(array $cohort): array
     {
@@ -253,23 +285,59 @@ final class PathQuery
             ->orderBy('subject_id')
             ->orderBy('occurred_at')
             ->orderBy('id')
+            ->limit(self::EVENT_CAP + 1)
+            ->toBase()
             ->get();
+
+        $truncated = $rows->count() > self::EVENT_CAP;
 
         $grouped = [];
 
-        foreach ($rows as $row) {
-            $grouped[$row->subject_type.'|'.$row->subject_id][] = $row;
+        foreach ($rows->take(self::EVENT_CAP) as $row) {
+            $key = SubjectKey::of($row->subject_type, $row->subject_id);
+
+            if ($key === null) {
+                continue;
+            }
+
+            $grouped[(string) $key][] = (object) [
+                'name' => $row->name,
+                'occurred_at' => self::parseTimestamp($row->occurred_at),
+            ];
         }
 
-        return $grouped;
+        return ['grouped' => $grouped, 'truncated' => $truncated];
+    }
+
+    /**
+     * Parse a raw occurred_at value from a toBase() read into a Carbon
+     * instance. PDO does not agree with itself across drivers on what a
+     * DATETIME column comes back as: SQLite and MySQL hand back a
+     * "Y-m-d H:i:s[.u]" string, Postgres does the same but some configurations
+     * (and some custom casts upstream) can hand back a DateTimeInterface
+     * instead. Carbon::parse() handles the string shapes both drivers use
+     * either way; the instanceof checks below only guard the case where the
+     * value already arrived as a date object.
+     */
+    private static function parseTimestamp(mixed $value): Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value);
+        }
+
+        return Carbon::parse((string) $value);
     }
 
     /**
      * One subject's ordered events, cut into the path the screen renders.
      * Returns null when the subject does not belong on the screen at all.
      *
-     * @param  list<TrailEvent>  $events  oldest first
-     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int, last_at: Carbon}|null
+     * @param  list<object{name: string, occurred_at: Carbon}>  $events  oldest first
+     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}|null
      */
     private function assemble(string $token, array $events): ?array
     {
@@ -422,7 +490,6 @@ final class PathQuery
             'completed' => $completed,
             'truncated' => $truncated,
             'elided' => $elided,
-            'last_at' => $steps[count($steps) - 1]['occurred_at'],
         ];
     }
 

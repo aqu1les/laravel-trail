@@ -176,8 +176,11 @@ final class Sample
             [['register', null], ['user.logged_in', '+3min'], ['session.started', '+30s'], ['order.placed', '+15min']],
         ];
 
-        // Monotonically increasing, so actors render strictly newest-first, the
-        // same invariant PathQuery::cohort() enforces for real data.
+        // Monotonically increasing, so actors render strictly newest-first.
+        // This "when" value stands in for when the journey STARTED, and that
+        // is exactly the invariant PathQuery::cohort() enforces for real
+        // data: rows are ordered by how recently the start event fired, newest
+        // first, and the screen's "when" column renders that same anchor.
         $agoMinutes = [4, 12, 26, 41, 60, 120, 180, 300];
 
         $now = self::nowMs();
