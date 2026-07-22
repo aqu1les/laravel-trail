@@ -1,4 +1,4 @@
-{{-- Shared dashboard sidebar. $active ∈ overview|events|timeline|design-system --}}
+{{-- Shared dashboard sidebar. $active ∈ overview|events|paths|timeline|design-system --}}
 @php($active = $active ?? '')
 <aside class="flex flex-col shrink-0 border-r" style="width: var(--trail-sidebar-w); border-color: var(--trail-border);">
   <div class="flex items-center gap-2.5 px-4" style="height: var(--trail-header-h);">
@@ -22,6 +22,10 @@
       @else
         <span class="trail-badge trail-badge-neutral ml-auto">live</span>
       @endif
+    </a>
+
+    <a class="trail-nav-item {{ $active === 'paths' ? 'is-active' : '' }}" href="{{ route('trail.paths') }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M5 8v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M12 13v3"/></svg>Paths
     </a>
 
     <a class="trail-nav-item" style="opacity:.5;pointer-events:none">

@@ -20,6 +20,12 @@ it('renders the Events Explorer screen', function () {
         ->assertSee('Buscar evento, ator, propriedade', false);
 });
 
+it('renders the Paths screen', function () {
+    $this->get('/trail/paths')
+        ->assertOk()
+        ->assertSee('Paths', false);
+});
+
 it('renders the Subject Timeline screen', function () {
     $this->get('/trail/timeline')
         ->assertOk()
@@ -38,6 +44,7 @@ it('links every screen through the shared sidebar', function () {
 
     expect($html)
         ->toContain(route('trail.events'))
+        ->toContain(route('trail.paths'))
         ->toContain(route('trail.timeline'))
         ->toContain(route('trail.design-system'))
         ->toContain('<style>');
