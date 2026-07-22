@@ -338,6 +338,56 @@ it('renders the when column by journey start, matching the recency sort order', 
         });
 });
 
+it('renders when labels in non-increasing recency order across a page of real data, including a walk-back subject', function () {
+    // Actors 1-3 fire a single signup each, at descending recency. Actor 4 is
+    // the walk-back case: two signups with nothing in between, an older one
+    // (2 days ago) and a newer one (20 hours ago). cohort() would sort actor
+    // 4 by its LAST signup (20h ago, between actors 2 and 3), but the anchor
+    // assemble() actually renders walks back to the FIRST of that run (2
+    // days ago) because collapseRepeats is on by default. The rendered
+    // column must stay non-increasing in recency regardless, so actor 4 must
+    // render below every actor whose anchor reads more recently than 2 days.
+    seedPath(1, ['signup' => '-1 hour']);
+    seedPath(2, ['signup' => '-20 hours']);
+    seedPath(3, ['signup' => '-1 day']);
+    seedPath(4, ['signup' => '-2 days']);
+    TrailEvent::create([
+        'name' => 'signup',
+        'subject_type' => User::class,
+        'subject_id' => 4,
+        'occurred_at' => Carbon::now()->subHours(20),
+    ]);
+
+    Livewire::withQueryParams(['start' => 'signup'])
+        ->test(Paths::class)
+        ->assertViewHas('rows', function (array $rows) {
+            $minutesAgo = array_map(function (array $row) {
+                $when = $row['when'];
+
+                if ($when === 'agora' || str_ends_with($when, 's')) {
+                    return 0;
+                }
+
+                $number = (int) filter_var($when, FILTER_SANITIZE_NUMBER_INT);
+
+                return match (true) {
+                    str_ends_with($when, 'min') => $number,
+                    str_ends_with($when, 'h') => $number * 60,
+                    str_ends_with($when, 'd') => $number * 60 * 24,
+                    default => $number,
+                };
+            }, $rows);
+
+            $sorted = $minutesAgo;
+            sort($sorted);
+
+            expect($rows)->toHaveCount(4)
+                ->and($minutesAgo)->toBe($sorted);
+
+            return true;
+        });
+});
+
 it('links each row to that actor timeline', function () {
     seedPath(7, ['register' => '-2 days', 'order.placed' => '-1 day']);
 

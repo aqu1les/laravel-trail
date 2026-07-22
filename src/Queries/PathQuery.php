@@ -150,7 +150,10 @@ final class PathQuery
     }
 
     /**
-     * One reconstructed path per subject in the cohort, newest starter first.
+     * One reconstructed path per subject in the cohort, ordered by the anchor
+     * each row actually renders (its first step), newest anchor first - which
+     * is not always the same subject order the cohort was selected in. See
+     * the sort in sequences() itself for why the two can differ.
      *
      * When a row is both completed and truncated, the appended terminus step
      * was found past maxSteps. `elided` carries how many distinct consecutive
@@ -181,8 +184,9 @@ final class PathQuery
         $events = $this->eventsFor($cohort['tokens']);
         $rows = [];
 
-        // Iterate the cohort, not the grouped events: the cohort already carries
-        // the recency ordering the screen renders in.
+        // Iterate the cohort, not the grouped events: the cohort is the set of
+        // subjects that made the cap cut, and every one of them must be
+        // assembled even if their events happen to sort differently below.
         foreach ($cohort['tokens'] as $token) {
             $row = $this->assemble($token, $events['grouped'][$token] ?? []);
 
@@ -190,6 +194,32 @@ final class PathQuery
                 $rows[] = $row;
             }
         }
+
+        // cohort() orders subjects in SQL by their LAST start (max(occurred_at)
+        // desc): that is the right rule for deciding WHICH subjects make the
+        // SUBJECT_CAP cut, because a subject who just started again is more
+        // relevant to keep than one who has been quiet, regardless of how far
+        // back their journey's shown anchor dates. But the anchor assemble()
+        // actually renders can differ from that last start: with
+        // collapseRepeats on, an anchor walks back over an unbroken run of the
+        // start event to the run's first occurrence (see assemble()'s comment
+        // on that walk-back). So a subject can make the cap cut on a recent
+        // start yet display far down the list on an older anchor - that is
+        // honest and intended, not a bug. Sort here, in PHP, by the anchor
+        // each row actually shows (steps[0]), so the display order always
+        // matches what the screen renders. The subject key is the stable
+        // tiebreak for equal anchors, mirroring cohort()'s own
+        // subject_type/subject_id tiebreak, so the order stays deterministic
+        // across drivers regardless of row arrival order.
+        usort($rows, function (array $a, array $b): int {
+            $byAnchor = $b['steps'][0]['occurred_at']->getTimestamp() <=> $a['steps'][0]['occurred_at']->getTimestamp();
+
+            if ($byAnchor !== 0) {
+                return $byAnchor;
+            }
+
+            return ($a['key']->type <=> $b['key']->type) ?: ($a['key']->id <=> $b['key']->id);
+        });
 
         return [
             'rows' => $rows,

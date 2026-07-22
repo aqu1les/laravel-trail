@@ -372,6 +372,33 @@ it('orders rows by how recently the subject started, newest first', function () 
     expect(array_map(fn (array $row) => $row['key']->id, $result['rows']))->toBe(['2', '3', '1']);
 });
 
+it('sorts rows by the anchor actually rendered, not by the SQL cohort order', function () {
+    // Subject A started once, 1 day ago. Subject B started twice with
+    // nothing in between: 3 days ago, then again 12 hours ago. cohort()
+    // orders subjects by their LAST start (max(occurred_at) desc), so B (12h
+    // ago) would sort above A (1 day ago) in SQL. But assemble() walks B's
+    // anchor back over that unbroken run to the FIRST occurrence (3 days
+    // ago), because collapseRepeats is on by default - so the row actually
+    // renders "3 days ago", which must sort BELOW A's "1 day ago", not above
+    // it. sequences() must re-sort in PHP by the anchor it actually returns.
+    seedPathEvent(1, 'signup', '-1 day');
+
+    seedPathEvent(2, 'signup', '-3 days');
+    seedPathEvent(2, 'signup', '-12 hours');
+
+    $result = pathQuery()->startingAt('signup')->sequences();
+
+    $keys = array_map(fn (array $row) => $row['key']->id, $result['rows']);
+    $anchors = array_map(fn (array $row) => $row['steps'][0]['occurred_at']->getTimestamp(), $result['rows']);
+
+    expect($keys)->toBe(['1', '2']);
+
+    $sortedDescending = $anchors;
+    rsort($sortedDescending);
+
+    expect($anchors)->toBe($sortedDescending);
+});
+
 it('offers the window vocabulary and its most frequent name', function () {
     seedPathEvent(1, 'register', '-2 days');
     seedPathEvent(2, 'register', '-2 days');
