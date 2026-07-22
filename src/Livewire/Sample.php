@@ -148,6 +148,9 @@ final class Sample
      */
     public static function paths(): array
     {
+        // One template per actor (8 actors, 8 templates below): no modulo
+        // wraparound, so each row's shape and age are exactly what they
+        // appear to be, with no wrap-induced repeat across the eight rows.
         $templates = [
             [['register', null], ['number_verified', '+38s'], ['whatsapp.connected', '+2min'], ['order.placed', '+1h']],
             [['register', null], ['number_verified', '+1min'], ['order.placed', '+9min'], ['invoice.paid', '+3h']],
@@ -155,9 +158,27 @@ final class Sample
             [['register', null], ['number_verified', '+2min'], ['whatsapp.connected', '+40s'], ['cart.updated', '+6min']],
             [['register', null], ['number_verified', '+1min'], ['invoice.paid', '+2h']],
             [['register', null]],
+            // Deliberately longer than PathQuery::DEFAULT_MAX_STEPS (8), so the
+            // truncated/elided marker states are actually reachable in demo mode
+            // instead of being hardcoded false for every row.
+            [
+                ['register', null],
+                ['number_verified', '+38s'],
+                ['onboarding.step_completed', '+2min'],
+                ['whatsapp.connected', '+45s'],
+                ['session.started', '+5min'],
+                ['cart.updated', '+8min'],
+                ['user.logged_in', '+12min'],
+                ['order.placed', '+20min'],
+                ['user.signed_up', '+40min'],
+                ['invoice.paid', '+2h'],
+            ],
+            [['register', null], ['user.logged_in', '+3min'], ['session.started', '+30s'], ['order.placed', '+15min']],
         ];
 
-        $agoMinutes = [4, 12, 26, 41, 60, 120];
+        // Monotonically increasing, so actors render strictly newest-first, the
+        // same invariant PathQuery::cohort() enforces for real data.
+        $agoMinutes = [4, 12, 26, 41, 60, 120, 180, 300];
 
         $now = self::nowMs();
         $rows = [];

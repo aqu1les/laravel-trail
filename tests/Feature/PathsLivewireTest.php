@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Trail\Trail\Livewire\Paths;
+use Trail\Trail\Livewire\Sample;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Tests\Fixtures\User;
 use Trail\Trail\Trail;
@@ -326,6 +328,50 @@ it('renders sample paths in demo mode without touching the database', function (
     expect(TrailEvent::count())->toBe(0);
 });
 
+it('runs zero database queries while rendering demo mode', function () {
+    // TrailEvent::count() only proves nothing was WRITTEN; it cannot detect a
+    // SELECT. Assert on the actual query log instead.
+    DB::connection()->flushQueryLog();
+    DB::connection()->enableQueryLog();
+
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->call('setEnd', 'invoice.paid')
+        ->call('clearEnd');
+
+    $queries = DB::connection()->getQueryLog();
+    DB::connection()->disableQueryLog();
+
+    expect($queries)->toBe([]);
+});
+
+it('returns demo path rows in non-increasing recency order, newest first', function () {
+    // Parse each row's "há X min/h/d" label back into a common unit (minutes)
+    // rather than hardcoding the internal minute list, so this genuinely
+    // checks the ordering property PathQuery::cohort() also enforces.
+    $minutesAgo = array_map(function (array $row) {
+        $when = $row['when'];
+
+        if ($when === 'agora' || str_ends_with($when, 's')) {
+            return 0;
+        }
+
+        $number = (int) filter_var($when, FILTER_SANITIZE_NUMBER_INT);
+
+        return match (true) {
+            str_ends_with($when, 'min') => $number,
+            str_ends_with($when, 'h') => $number * 60,
+            str_ends_with($when, 'd') => $number * 60 * 24,
+            default => $number,
+        };
+    }, Sample::paths());
+
+    $sorted = $minutesAgo;
+    sort($sorted);
+
+    expect($minutesAgo)->toBe($sorted);
+});
+
 it('filters the demo rows by the selected start and end events', function () {
     Livewire::test(Paths::class, ['demo' => true])
         ->call('setStart', 'register')
@@ -343,18 +389,47 @@ it('filters the demo rows by the selected start and end events', function () {
 });
 
 it('marks demo rows completed only when a terminus was requested and matched', function () {
+    // Without a terminus, no demo row is ever "completed", and elision only
+    // ever applies once a terminus is set - but one sample path is
+    // deliberately longer than the step cap, so it alone renders truncated.
     Livewire::test(Paths::class, ['demo' => true])
         ->call('setStart', 'register')
-        ->assertViewHas('rows', fn (array $rows) => collect($rows)->every(
-            fn (array $row) => $row['completed'] === false && $row['truncated'] === false && $row['elided'] === 0
-        ));
+        ->assertViewHas('rows', function (array $rows) {
+            if (! collect($rows)->every(fn (array $row) => $row['completed'] === false && $row['elided'] === 0)) {
+                return false;
+            }
 
+            return collect($rows)->filter(fn (array $row) => $row['truncated'])->count() === 1;
+        });
+
+    // With a terminus set, every surviving row completed - and the one path
+    // long enough to run past the cap before reaching it renders truncated
+    // with exactly one elided run; every other completing path stays whole.
     Livewire::test(Paths::class, ['demo' => true])
         ->call('setStart', 'register')
         ->call('setEnd', 'invoice.paid')
-        ->assertViewHas('rows', fn (array $rows) => count($rows) > 0 && collect($rows)->every(
-            fn (array $row) => $row['completed'] === true && $row['truncated'] === false && $row['elided'] === 0
-        ));
+        ->assertViewHas('rows', function (array $rows) {
+            if (count($rows) === 0 || ! collect($rows)->every(fn (array $row) => $row['completed'] === true)) {
+                return false;
+            }
+
+            $truncated = collect($rows)->filter(fn (array $row) => $row['truncated']);
+
+            return $truncated->count() === 1 && $truncated->first()['elided'] === 1;
+        });
+});
+
+it('shows the open-ended marker for the one demo path longer than the step cap', function () {
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->assertSee('mais eventos', false);
+});
+
+it('shows the elided-count chip when a demo terminus is found past the step cap', function () {
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->call('setEnd', 'invoice.paid')
+        ->assertSee('+1 evento', false);
 });
 
 it('labels the gap between steps in compact units', function () {

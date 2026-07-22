@@ -1,4 +1,4 @@
-{{-- Shared dashboard sidebar. $active ∈ overview|events|paths|timeline|design-system --}}
+{{-- Shared dashboard sidebar. $active ∈ overview|events|paths|timeline|design-system|demo-overview|demo-events|demo-paths|demo-timeline --}}
 @php($active = $active ?? '')
 <aside class="flex flex-col shrink-0 border-r" style="width: var(--trail-sidebar-w); border-color: var(--trail-border);">
   <div class="flex items-center gap-2.5 px-4" style="height: var(--trail-header-h);">

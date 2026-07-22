@@ -186,27 +186,47 @@ class Paths extends Component
     /**
      * The demo rows, filtered in PHP. Sample data never touches the database,
      * so the engine is bypassed entirely here. Mirrors PathQuery::assemble()'s
-     * completed/truncated/elided semantics: sample paths are short and never
-     * scanned past a cap, so truncated and elided are always honestly false/0,
-     * and completed is true only when a terminus was requested and matched -
-     * exactly as the real engine leaves it false when no end event is set.
+     * completed/truncated/elided semantics rather than hardcoding them: a
+     * sample path longer than PathQuery::DEFAULT_MAX_STEPS is genuinely cut
+     * the same way, so both marker states the view can render are honestly
+     * reachable. completed is true only when a terminus was requested and
+     * matched - exactly as the real engine leaves it false when no end event
+     * is set.
      *
      * @return list<array<string,mixed>>
      */
     private function demoRows(): array
     {
         $rows = [];
+        $maxSteps = PathQuery::DEFAULT_MAX_STEPS;
 
         foreach (Sample::paths() as $row) {
             $names = array_column($row['steps'], 'name');
-            $anchor = array_search($this->startEvent, $names, true);
 
-            if ($anchor === false) {
+            // The LAST occurrence, then walk back over a consecutive run of the
+            // same name - the same anchor rule PathQuery::assemble() uses. No
+            // sample template repeats a name today, so this only guards
+            // against future templates that do.
+            $anchor = null;
+
+            foreach ($names as $index => $name) {
+                if ($name === $this->startEvent) {
+                    $anchor = $index;
+                }
+            }
+
+            if ($anchor === null) {
                 continue;
+            }
+
+            while ($anchor > 0 && $names[$anchor - 1] === $this->startEvent) {
+                $anchor--;
             }
 
             $steps = array_slice($row['steps'], $anchor);
             $completed = false;
+            $truncated = false;
+            $elided = 0;
 
             if ($this->endEvent !== null) {
                 $terminus = array_search($this->endEvent, array_column($steps, 'name'), true);
@@ -215,8 +235,26 @@ class Paths extends Component
                     continue;
                 }
 
-                $steps = array_slice($steps, 0, $terminus + 1);
+                if ($terminus < $maxSteps) {
+                    // The terminus sits within the cap: nothing to elide.
+                    $steps = array_slice($steps, 0, $terminus + 1);
+                } else {
+                    // Found past the cap: render up to maxSteps, then append the
+                    // terminus. Every step in between is dropped for good and
+                    // counted as elided - the sample templates never repeat a
+                    // name, so each dropped step is its own run, same as the
+                    // real engine counts runs, not raw events.
+                    $steps = array_merge(array_slice($steps, 0, $maxSteps), [$steps[$terminus]]);
+                    $truncated = true;
+                    $elided = $terminus - $maxSteps;
+                }
+
                 $completed = true;
+            } elseif (count($steps) > $maxSteps) {
+                // No terminus configured: cut at the cap and leave the journey
+                // open-ended, exactly like the real engine's no-terminus branch.
+                $steps = array_slice($steps, 0, $maxSteps);
+                $truncated = true;
             }
 
             $last = count($steps) - 1;
@@ -229,8 +267,8 @@ class Paths extends Component
                 'href' => null,
                 'when' => $row['when'],
                 'completed' => $completed,
-                'truncated' => false,
-                'elided' => 0,
+                'truncated' => $truncated,
+                'elided' => $elided,
                 'steps' => array_map(fn (array $step, int $index) => [
                     'name' => $step['name'],
                     // The anchor step's own gap is meaningless once the path is cut.

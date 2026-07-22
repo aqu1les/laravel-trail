@@ -27,8 +27,13 @@ final class PathQuery
     /** How many subjects a single read may reconstruct. */
     public const SUBJECT_CAP = 1000;
 
-    /** How many steps a single path may carry before it is cut. */
-    private const DEFAULT_MAX_STEPS = 8;
+    /**
+     * How many steps a single path may carry before it is cut.
+     *
+     * Public so Paths::demoRows() can derive the same truncated/elided
+     * semantics for sample data without duplicating this number.
+     */
+    public const DEFAULT_MAX_STEPS = 8;
 
     /**
      * How many of a subject's in-window events assemble() will scan looking for
