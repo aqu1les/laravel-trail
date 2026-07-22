@@ -44,9 +44,12 @@ class Paths extends Component
 
         $this->guardSince();
 
-        // Opening on the busiest event beats opening on nothing at all.
+        // Opening on the busiest event beats opening on nothing at all. Demo
+        // mode never queries, so its default is a fixed name from the sample set.
         if ($this->startEvent === '') {
-            $this->startEvent = $this->paths()->mostFrequentName() ?? '';
+            $this->startEvent = $this->demo
+                ? 'register'
+                : ($this->paths()->mostFrequentName() ?? '');
         }
 
         // An empty ?end= (e.g. a hand-typed URL) means the same as "no terminus".
@@ -180,21 +183,130 @@ class Paths extends Component
         }, $page);
     }
 
-    public function render(): View
+    /**
+     * The demo rows, filtered in PHP. Sample data never touches the database,
+     * so the engine is bypassed entirely here. Mirrors PathQuery::assemble()'s
+     * completed/truncated/elided semantics: sample paths are short and never
+     * scanned past a cap, so truncated and elided are always honestly false/0,
+     * and completed is true only when a terminus was requested and matched -
+     * exactly as the real engine leaves it false when no end event is set.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function demoRows(): array
     {
-        $result = $this->paths()->sequences();
+        $rows = [];
 
-        $totalPages = max(1, (int) ceil($result['total'] / self::PER_PAGE));
+        foreach (Sample::paths() as $row) {
+            $names = array_column($row['steps'], 'name');
+            $anchor = array_search($this->startEvent, $names, true);
+
+            if ($anchor === false) {
+                continue;
+            }
+
+            $steps = array_slice($row['steps'], $anchor);
+            $completed = false;
+
+            if ($this->endEvent !== null) {
+                $terminus = array_search($this->endEvent, array_column($steps, 'name'), true);
+
+                if ($terminus === false) {
+                    continue;
+                }
+
+                $steps = array_slice($steps, 0, $terminus + 1);
+                $completed = true;
+            }
+
+            $last = count($steps) - 1;
+
+            $rows[] = [
+                'name' => $row['name'],
+                'type' => $row['type'],
+                'id' => $row['id'],
+                'initials' => Sample::initials($row['name']),
+                'href' => null,
+                'when' => $row['when'],
+                'completed' => $completed,
+                'truncated' => false,
+                'elided' => 0,
+                'steps' => array_map(fn (array $step, int $index) => [
+                    'name' => $step['name'],
+                    // The anchor step's own gap is meaningless once the path is cut.
+                    'gap' => $index === 0 ? null : $step['gap'],
+                    'is_start' => $index === 0,
+                    'is_end' => $completed && $index === $last,
+                ], $steps, array_keys($steps)),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The vocabulary the demo pickers offer: every name any sample path visits.
+     *
+     * @return list<string>
+     */
+    private function demoNames(): array
+    {
+        $names = [];
+
+        foreach (Sample::paths() as $row) {
+            foreach ($row['steps'] as $step) {
+                $names[$step['name']] = true;
+            }
+        }
+
+        $names = array_keys($names);
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * Pull $page back into range for a result set of this size, and report how
+     * many pages it has. A stale ?page= from a wider window must not render blank.
+     */
+    private function clampPage(int $total): int
+    {
+        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
         $this->page = max(1, min($this->page, $totalPages));
 
-        $page = array_slice($result['rows'], ($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
+        return $totalPages;
+    }
+
+    public function render(): View
+    {
+        // Both branches produce the same four values; only the source differs.
+        // Slice first, then build display rows: resolving identities (or, in
+        // demo mode, just slicing) for every actor in the cohort would be up
+        // to SUBJECT_CAP lookups to render fifteen rows.
+        if ($this->demo) {
+            $all = $this->demoRows();
+            $total = count($all);
+            $capped = false;
+            $totalPages = $this->clampPage($total);
+            $rows = array_slice($all, ($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
+            $names = $this->demoNames();
+        } else {
+            $result = $this->paths()->sequences();
+            $total = $result['total'];
+            $capped = $result['truncated'];
+            $totalPages = $this->clampPage($total);
+            $rows = $this->displayRows(
+                array_slice($result['rows'], ($this->page - 1) * self::PER_PAGE, self::PER_PAGE)
+            );
+            $names = $this->paths()->namesInWindow();
+        }
 
         return view('trail::livewire.paths', [
-            'rows' => $this->displayRows($page),
-            'names' => $this->paths()->namesInWindow(),
-            'total' => $result['total'],
+            'rows' => $rows,
+            'names' => $names,
+            'total' => $total,
             'totalPages' => $totalPages,
-            'capped' => $result['truncated'],
+            'capped' => $capped,
         ])->layout('trail::layout', ['active' => ($this->demo ? 'demo-' : '').'paths', 'title' => 'Paths']);
     }
 }

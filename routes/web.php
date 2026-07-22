@@ -28,6 +28,7 @@ Route::middleware(Authorize::class.':view')->group(function () {
     if (app()->environment('local')) {
         Route::get('demo', Overview::class)->defaults('demo', true)->name('demo');
         Route::get('demo/events', Events::class)->defaults('demo', true)->name('demo.events');
+        Route::get('demo/paths', Paths::class)->defaults('demo', true)->name('demo.paths');
         Route::get('demo/timeline', SubjectTimeline::class)->defaults('demo', true)->name('demo.timeline');
     }
 

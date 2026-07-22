@@ -140,6 +140,44 @@ final class Sample
         ];
     }
 
+    /**
+     * Representative reconstructed paths for the Paths screen in demo mode.
+     * Already in the display shape the screen consumes, newest first.
+     *
+     * @return list<array{name: string, type: string, id: string, when: string, steps: list<array{name: string, gap: ?string}>}>
+     */
+    public static function paths(): array
+    {
+        $templates = [
+            [['register', null], ['number_verified', '+38s'], ['whatsapp.connected', '+2min'], ['order.placed', '+1h']],
+            [['register', null], ['number_verified', '+1min'], ['order.placed', '+9min'], ['invoice.paid', '+3h']],
+            [['register', null], ['number_verified', '+22s'], ['order.placed', '+5min']],
+            [['register', null], ['number_verified', '+2min'], ['whatsapp.connected', '+40s'], ['cart.updated', '+6min']],
+            [['register', null], ['number_verified', '+1min'], ['invoice.paid', '+2h']],
+            [['register', null]],
+        ];
+
+        $agoMinutes = [4, 12, 26, 41, 60, 120];
+
+        $now = self::nowMs();
+        $rows = [];
+
+        foreach (self::actors() as $index => $actor) {
+            $template = $templates[$index % count($templates)];
+            $minutesAgo = $agoMinutes[$index % count($agoMinutes)];
+
+            $rows[] = [
+                'name' => $actor['name'],
+                'type' => $actor['type'],
+                'id' => $actor['id'],
+                'when' => self::relative($now - $minutesAgo * 60000),
+                'steps' => array_map(fn (array $step) => ['name' => $step[0], 'gap' => $step[1]], $template),
+            ];
+        }
+
+        return $rows;
+    }
+
     /** Relative time label in Portuguese, from an epoch-millis timestamp. */
     public static function relative(int $ts): string
     {

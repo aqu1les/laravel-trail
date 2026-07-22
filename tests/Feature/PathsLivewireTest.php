@@ -316,6 +316,47 @@ it('links each row to that actor timeline', function () {
         ->assertViewHas('rows', fn (array $rows) => str_contains($rows[0]['href'], urlencode(User::class.'|7')));
 });
 
+it('renders sample paths in demo mode without touching the database', function () {
+    expect(TrailEvent::count())->toBe(0);
+
+    Livewire::test(Paths::class, ['demo' => true])
+        ->assertViewHas('rows', fn (array $rows) => count($rows) > 0 && $rows[0]['href'] === null)
+        ->assertSee('register', false);
+
+    expect(TrailEvent::count())->toBe(0);
+});
+
+it('filters the demo rows by the selected start and end events', function () {
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->call('setEnd', 'invoice.paid')
+        ->assertViewHas('rows', function (array $rows) {
+            foreach ($rows as $row) {
+                $names = array_column($row['steps'], 'name');
+                if ($names[0] !== 'register' || end($names) !== 'invoice.paid') {
+                    return false;
+                }
+            }
+
+            return count($rows) > 0;
+        });
+});
+
+it('marks demo rows completed only when a terminus was requested and matched', function () {
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->assertViewHas('rows', fn (array $rows) => collect($rows)->every(
+            fn (array $row) => $row['completed'] === false && $row['truncated'] === false && $row['elided'] === 0
+        ));
+
+    Livewire::test(Paths::class, ['demo' => true])
+        ->call('setStart', 'register')
+        ->call('setEnd', 'invoice.paid')
+        ->assertViewHas('rows', fn (array $rows) => count($rows) > 0 && collect($rows)->every(
+            fn (array $row) => $row['completed'] === true && $row['truncated'] === false && $row['elided'] === 0
+        ));
+});
+
 it('labels the gap between steps in compact units', function () {
     Carbon::setTestNow(Carbon::parse('2026-01-02 12:00:00'));
 

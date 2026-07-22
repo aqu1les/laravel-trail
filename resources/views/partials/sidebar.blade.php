@@ -49,6 +49,9 @@
       <a class="trail-nav-item {{ $active === 'demo-events' ? 'is-active' : '' }}" href="{{ route('trail.demo.events') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Events
       </a>
+      <a class="trail-nav-item {{ $active === 'demo-paths' ? 'is-active' : '' }}" href="{{ route('trail.demo.paths') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M5 8v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M12 13v3"/></svg>Paths
+      </a>
       <a class="trail-nav-item {{ $active === 'demo-timeline' ? 'is-active' : '' }}" href="{{ route('trail.demo.timeline') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Timeline
       </a>

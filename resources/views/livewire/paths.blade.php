@@ -97,7 +97,7 @@
       @elseif (count($rows))
         <div style="padding:10px 12px 14px">
           @foreach ($rows as $row)
-            <a wire:key="path-{{ $row['type'] }}-{{ $row['id'] }}" href="{{ $row['href'] }}" class="flex items-center gap-3.5 px-3.5 py-3 rounded-lg hover:bg-surface-2" @if (! $loop->last) style="border-bottom:1px solid var(--trail-border)" @endif>
+            <{{ $row['href'] ? 'a' : 'div' }} wire:key="path-{{ $row['type'] }}-{{ $row['id'] }}" @if ($row['href']) href="{{ $row['href'] }}" @endif class="flex items-center gap-3.5 px-3.5 py-3 rounded-lg hover:bg-surface-2" @if (! $loop->last) style="border-bottom:1px solid var(--trail-border)" @endif>
               <div class="flex items-center gap-2.5 shrink-0" style="width:180px">
                 <span class="trail-avatar">{{ $row['initials'] }}</span>
                 <div style="min-width:0">
@@ -146,7 +146,7 @@
               </div>
 
               <span class="ds-label shrink-0" style="width:60px; text-align:right">{{ $row['when'] }}</span>
-            </a>
+            </{{ $row['href'] ? 'a' : 'div' }}>
           @endforeach
         </div>
 
