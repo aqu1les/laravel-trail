@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Trail\Trail\Http\Middleware\TrackPageView;
 use Trail\Trail\Models\TrailEvent;
 
+afterEach(fn () => Trail\Trail\Trail::trackPageViewsUsing(null));
+
 it('records a page.viewed event for matched routes', function () {
     config()->set('trail.recorder', 'sync');
     config()->set('trail.auto_track.ignore', ['trail*']);
@@ -80,8 +82,6 @@ it('records a request the registered closure accepts', function () {
     $this->get('/api/stats', ['Sec-Fetch-Dest' => 'empty'])->assertOk();
 
     expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
-
-    Trail\Trail\Trail::trackPageViewsUsing(null);
 });
 
 it('applies the ignore list even when a permissive closure is registered', function () {
@@ -93,6 +93,4 @@ it('applies the ignore list even when a permissive closure is registered', funct
     $this->get('/trail/events')->assertOk();
 
     expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
-
-    Trail\Trail\Trail::trackPageViewsUsing(null);
 });
