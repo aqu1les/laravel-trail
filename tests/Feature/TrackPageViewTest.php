@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Trail\Trail\Http\Middleware\TrackPageView;
 use Trail\Trail\Models\TrailEvent;
 
+afterEach(fn () => Trail\Trail\Trail::trackPageViewsUsing(null));
+
 it('records a page.viewed event for matched routes', function () {
     config()->set('trail.recorder', 'sync');
     config()->set('trail.auto_track.ignore', ['trail*']);
@@ -59,4 +61,46 @@ it('uses the configured event name for page views', function () {
     $this->get('/custom-name')->assertOk();
 
     expect(TrailEvent::firstWhere('name', 'visit.tracked'))->not->toBeNull();
+});
+
+it('does not record a background fetch', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Route::middleware(['web', TrackPageView::class])->get('/api/stats', fn () => 'ok');
+
+    $this->get('/api/stats', ['Sec-Fetch-Dest' => 'empty'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
+});
+
+it('records a request the registered closure accepts', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Trail\Trail\Trail::trackPageViewsUsing(fn () => true);
+    Route::middleware(['web', TrackPageView::class])->get('/api/stats', fn () => 'ok');
+
+    $this->get('/api/stats', ['Sec-Fetch-Dest' => 'empty'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
+});
+
+it('records a navigation to a normally ignored path when the ignore list is emptied', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', []);
+    Route::middleware(['web', TrackPageView::class])->get('/trail/events', fn () => 'ok');
+
+    $this->get('/trail/events', ['Sec-Fetch-Dest' => 'document'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
+});
+
+it('applies the ignore list even when a permissive closure is registered', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Trail\Trail\Trail::trackPageViewsUsing(fn () => true);
+    Route::middleware(['web', TrackPageView::class])->get('/trail/events', fn () => 'ok');
+
+    $this->get('/trail/events')->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
 });

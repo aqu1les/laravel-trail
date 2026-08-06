@@ -30,7 +30,10 @@ _ide_helper_models.php
 # Misc
 phpunit.xml
 phpstan.neon
-/docs
+# Scratch docs: superpowers specs/plans and the original implementation plan.
+# The rest of docs/ (agents config, ADRs) is versioned.
+/docs/superpowers
+/docs/spec.md
 /coverage
 
 .claude/settings.local.json

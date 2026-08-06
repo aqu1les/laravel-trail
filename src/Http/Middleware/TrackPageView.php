@@ -15,7 +15,7 @@ class TrackPageView
     {
         $response = $next($request);
 
-        if ($this->shouldTrack($request)) {
+        if ($this->shouldTrack($request, $response)) {
             $properties = ['path' => $request->path()];
 
             if ($route = $request->route()?->getName()) {
@@ -28,15 +28,17 @@ class TrackPageView
         return $response;
     }
 
-    protected function shouldTrack(Request $request): bool
+    protected function shouldTrack(Request $request, Response $response): bool
     {
-        if (! $request->isMethod('GET')) {
-            return false;
-        }
-
         /** @var array<int, string> $ignore */
         $ignore = (array) config('trail.auto_track.ignore', []);
 
-        return ! $request->is(...$ignore);
+        // The ignore list is a hard guard, applied before any override. It is
+        // what keeps the dashboard from recording page views of itself.
+        if ($ignore !== [] && $request->is(...$ignore)) {
+            return false;
+        }
+
+        return Trail::isNavigation($request, $response);
     }
 }
