@@ -244,7 +244,9 @@ server-side subject resolution. Tighten it whenever you need to.
 
 If you already enable the server-side `page_views` auto-capture, do not also turn on
 the client's `autoPageViews` - Inertia visits are real Laravel requests and would be
-counted twice. Pick server-side or client-side, not both.
+counted twice. Pick server-side or client-side, not both. See the
+[Navigation Tracking](https://github.com/aqu1les/laravel-trail/wiki/Navigation-Tracking)
+wiki page for what counts as a Navigation and the known limitations of each source.
 
 See the [Browser / SPA tracking](https://github.com/aqu1les/laravel-trail/wiki/Browser-Tracking)
 wiki page for the full config (`api.enabled`, `browser.*`, `register_routes`), route
@@ -409,7 +411,7 @@ A few of the knobs in `config/trail.php`:
 ],
 
 'auto_track' => [
-    'page_views' => false,      // set true to auto-record a page.viewed event per GET request
+    'page_views' => false,      // set true to auto-record a page.viewed event per navigation
     'event_name' => 'page.viewed',
     'ignore'     => ['trail*', 'horizon*', 'telescope*', 'livewire*', '_debugbar*'],
 ],
