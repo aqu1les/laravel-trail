@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.2.4 - 2026-08-06
+
+### What's Changed
+
+* fix: contar apenas navegações reais em page.viewed by @aqu1les in https://github.com/aqu1les/laravel-trail/pull/11
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.2.3...v1.2.4
+
 ## v1.2.3 - 2026-07-22
 
 ### What's Changed
