@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Trail\Trail\Support\NavigationDetector;
 
+afterEach(fn () => Trail\Trail\Trail::trackPageViewsUsing(null));
+
 /**
  * @param  array<string, string>  $headers
  */
