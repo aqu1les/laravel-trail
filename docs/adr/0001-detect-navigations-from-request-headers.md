@@ -31,10 +31,14 @@ would delete nearly all page views in an Inertia app. Do not reintroduce it.
   same function, with the same headers, as a real navigation (`livewire/livewire` v4.3.1,
   `dist/livewire.js`, `prefetchHtml()` calls `performFetch()` calls `sendNavigateRequest()`). There
   is no header to filter on. Inertia, by contrast, sends `Purpose: prefetch`.
-- **Clients without Fetch Metadata rely on the `Accept` fallback.** This is load-bearing, not a
-  nicety: Laravel's own test requests send no `Sec-Fetch-*`, and Symfony's `Request::create()` fills
-  in `Accept: text/html,...`. Making the missing-header case restrictive instead of a fallback would
-  fail the entire test suite and silently stop counting for any non-browser client.
+- **The `Accept` fallback is load-bearing, and the reason is not just old browsers.** The Fetch
+  Metadata spec gates every `Sec-Fetch-*` header on the request URL: "If r's url is not a
+  potentially trustworthy URL, return." So no browser sends them outside HTTPS or localhost, and
+  an environment served over plain HTTP falls entirely through to `Accept`. The same applies to
+  Laravel's own test requests, which send no `Sec-Fetch-*` while Symfony's `Request::create()`
+  fills in `Accept: text/html,...`. Making the missing-header case restrictive instead of a
+  fallback would fail the entire test suite and silently stop counting on any HTTP staging
+  environment, with no symptom beyond the number going to zero.
 - **A prerendered page's real Navigation goes uncounted.** `Sec-Fetch-Dest: document` requests
   carrying `Sec-Purpose: prefetch` or `prefetch;prerender` (or the legacy `Purpose: prefetch`) are
   excluded so browser-level prefetch and prerender are not recorded as Navigations. When the actor
