@@ -102,3 +102,40 @@ it('ignores the accept fallback when fetch metadata is present', function () {
         'Accept' => 'text/html',
     ])))->toBeFalse();
 });
+
+it('uses the registered closure instead of the default rule', function () {
+    Trail\Trail\Trail::trackPageViewsUsing(fn () => true);
+
+    // A background fetch, which the default rule rejects.
+    expect(Trail\Trail\Trail::isNavigation(
+        navRequest(['Sec-Fetch-Dest' => 'empty']),
+        new Response('ok'),
+    ))->toBeTrue();
+
+    Trail\Trail\Trail::trackPageViewsUsing(null);
+});
+
+it('passes both the request and the response to the closure', function () {
+    $seen = null;
+
+    Trail\Trail\Trail::trackPageViewsUsing(function ($request, $response) use (&$seen) {
+        $seen = [$request->getMethod(), $response->getStatusCode()];
+
+        return true;
+    });
+
+    Trail\Trail\Trail::isNavigation(navRequest(), new Response('ok', 302));
+
+    expect($seen)->toBe(['GET', 302]);
+
+    Trail\Trail\Trail::trackPageViewsUsing(null);
+});
+
+it('falls back to the default rule when no closure is registered', function () {
+    Trail\Trail\Trail::trackPageViewsUsing(null);
+
+    expect(Trail\Trail\Trail::isNavigation(
+        navRequest(['Sec-Fetch-Dest' => 'document']),
+        new Response('ok'),
+    ))->toBeTrue();
+});

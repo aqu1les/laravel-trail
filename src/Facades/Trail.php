@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static array<string, mixed> funnel(array<int, string> $steps)
  * @method static void mcpUsing(?\Closure $callback)
  * @method static bool canAccessMcp(\Illuminate\Http\Request $request)
+ * @method static void trackPageViewsUsing(?\Closure $callback)
+ * @method static bool isNavigation(\Illuminate\Http\Request $request, \Symfony\Component\HttpFoundation\Response $response)
  *
  * @see \Trail\Trail\Trail
  */

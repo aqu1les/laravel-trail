@@ -8,9 +8,11 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\Response;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\EventQuery;
 use Trail\Trail\Support\FunnelReport;
+use Trail\Trail\Support\NavigationDetector;
 
 class Trail
 {
@@ -27,6 +29,13 @@ class Trail
      * @var (Closure(Request): bool)|null
      */
     protected static ?Closure $ingestUsing = null;
+
+    /**
+     * The callback that decides whether a request is a Navigation.
+     *
+     * @var (Closure(Request, Response): bool)|null
+     */
+    protected static ?Closure $trackPageViewsUsing = null;
 
     public function __construct(protected RecorderManager $recorders) {}
 
@@ -108,6 +117,34 @@ class Trail
         $callback = static::$ingestUsing;
 
         return $callback !== null ? (bool) $callback($request) : true;
+    }
+
+    /**
+     * Register the callback used to decide whether a request is a Navigation.
+     *
+     * Replaces the default rule entirely. The auto_track.ignore list still
+     * applies on top, so overriding this cannot accidentally make the
+     * dashboard record its own page views.
+     *
+     * @param  (Closure(Request, Response): bool)|null  $callback
+     */
+    public static function trackPageViewsUsing(?Closure $callback): void
+    {
+        static::$trackPageViewsUsing = $callback;
+    }
+
+    /**
+     * Determine if the given request is a Navigation worth recording.
+     */
+    public static function isNavigation(Request $request, Response $response): bool
+    {
+        $callback = static::$trackPageViewsUsing;
+
+        if ($callback !== null) {
+            return (bool) $callback($request, $response);
+        }
+
+        return app(NavigationDetector::class)->isNavigation($request, $response);
     }
 
     /**
