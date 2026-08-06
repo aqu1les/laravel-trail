@@ -2,55 +2,31 @@
 
 declare(strict_types=1);
 
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Trail\Trail\Support\NavigationDetector;
 
 afterEach(fn () => Trail\Trail\Trail::trackPageViewsUsing(null));
 
-/**
- * @param  array<string, string>  $headers
- */
-function navRequest(array $headers = [], string $method = 'GET'): Request
-{
-    $request = Request::create('/dashboard', $method);
-
-    // Request::create() seeds a browser-ish Accept. Clear it so each case is explicit.
-    $request->headers->remove('Accept');
-
-    foreach ($headers as $name => $value) {
-        $request->headers->set($name, $value);
-    }
-
-    return $request;
-}
-
-function isNavigation(Request $request): bool
-{
-    return (new NavigationDetector)->isNavigation($request, new Response('ok'));
-}
-
 it('counts a top level document navigation', function () {
-    expect(isNavigation(navRequest(['Sec-Fetch-Dest' => 'document'])))->toBeTrue();
+    expect(navigationDetectorSaysYes(navigationDetectorRequest(['Sec-Fetch-Dest' => 'document'])))->toBeTrue();
 });
 
 it('does not count a background fetch', function () {
-    expect(isNavigation(navRequest(['Sec-Fetch-Dest' => 'empty'])))->toBeFalse();
+    expect(navigationDetectorSaysYes(navigationDetectorRequest(['Sec-Fetch-Dest' => 'empty'])))->toBeFalse();
 });
 
 it('does not count a non GET request', function () {
-    expect(isNavigation(navRequest(['Sec-Fetch-Dest' => 'document'], 'POST')))->toBeFalse();
+    expect(navigationDetectorSaysYes(navigationDetectorRequest(['Sec-Fetch-Dest' => 'document'], 'POST')))->toBeFalse();
 });
 
 it('counts an inertia visit', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'X-Inertia' => 'true',
         'Sec-Fetch-Dest' => 'empty',
     ])))->toBeTrue();
 });
 
 it('does not count an inertia partial reload', function (string $header) {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'X-Inertia' => 'true',
         'Sec-Fetch-Dest' => 'empty',
         $header => 'stats',
@@ -62,7 +38,7 @@ it('does not count an inertia partial reload', function (string $header) {
 ]);
 
 it('does not count an inertia reload or poll', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'X-Inertia' => 'true',
         'Sec-Fetch-Dest' => 'empty',
         'Cache-Control' => 'no-cache',
@@ -70,7 +46,7 @@ it('does not count an inertia reload or poll', function () {
 });
 
 it('does not count an inertia prefetch', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'X-Inertia' => 'true',
         'Sec-Fetch-Dest' => 'empty',
         'Purpose' => 'prefetch',
@@ -78,31 +54,58 @@ it('does not count an inertia prefetch', function () {
 });
 
 it('counts a livewire navigate visit', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'X-Livewire-Navigate' => '1',
         'Sec-Fetch-Dest' => 'empty',
     ])))->toBeTrue();
 });
 
 it('falls back to accept when the client sends no fetch metadata', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     ])))->toBeTrue();
 });
 
 it('does not count a fetch that sends no fetch metadata', function () {
-    expect(isNavigation(navRequest(['Accept' => '*/*'])))->toBeFalse();
+    expect(navigationDetectorSaysYes(navigationDetectorRequest(['Accept' => '*/*'])))->toBeFalse();
 });
 
 it('does not count a request with neither fetch metadata nor an html accept', function () {
-    expect(isNavigation(navRequest()))->toBeFalse();
+    expect(navigationDetectorSaysYes(navigationDetectorRequest()))->toBeFalse();
 });
 
 it('ignores the accept fallback when fetch metadata is present', function () {
-    expect(isNavigation(navRequest([
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
         'Sec-Fetch-Dest' => 'empty',
         'Accept' => 'text/html',
     ])))->toBeFalse();
+});
+
+it('does not count a browser prefetch that sends Sec-Purpose: prefetch', function () {
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
+        'Sec-Fetch-Dest' => 'document',
+        'Sec-Purpose' => 'prefetch',
+    ])))->toBeFalse();
+});
+
+it('does not count a browser prerender that sends Sec-Purpose: prefetch;prerender', function () {
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
+        'Sec-Fetch-Dest' => 'document',
+        'Sec-Purpose' => 'prefetch;prerender',
+    ])))->toBeFalse();
+});
+
+it('does not count a browser prefetch that sends the legacy Purpose: prefetch', function () {
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
+        'Sec-Fetch-Dest' => 'document',
+        'Purpose' => 'prefetch',
+    ])))->toBeFalse();
+});
+
+it('counts a plain document navigation with neither prefetch header', function () {
+    expect(navigationDetectorSaysYes(navigationDetectorRequest([
+        'Sec-Fetch-Dest' => 'document',
+    ])))->toBeTrue();
 });
 
 it('uses the registered closure instead of the default rule', function () {
@@ -110,11 +113,9 @@ it('uses the registered closure instead of the default rule', function () {
 
     // A background fetch, which the default rule rejects.
     expect(Trail\Trail\Trail::isNavigation(
-        navRequest(['Sec-Fetch-Dest' => 'empty']),
+        navigationDetectorRequest(['Sec-Fetch-Dest' => 'empty']),
         new Response('ok'),
     ))->toBeTrue();
-
-    Trail\Trail\Trail::trackPageViewsUsing(null);
 });
 
 it('passes both the request and the response to the closure', function () {
@@ -126,18 +127,16 @@ it('passes both the request and the response to the closure', function () {
         return true;
     });
 
-    Trail\Trail\Trail::isNavigation(navRequest(), new Response('ok', 302));
+    Trail\Trail\Trail::isNavigation(navigationDetectorRequest(), new Response('ok', 302));
 
     expect($seen)->toBe(['GET', 302]);
-
-    Trail\Trail\Trail::trackPageViewsUsing(null);
 });
 
 it('falls back to the default rule when no closure is registered', function () {
     Trail\Trail\Trail::trackPageViewsUsing(null);
 
     expect(Trail\Trail\Trail::isNavigation(
-        navRequest(['Sec-Fetch-Dest' => 'document']),
+        navigationDetectorRequest(['Sec-Fetch-Dest' => 'document']),
         new Response('ok'),
     ))->toBeTrue();
 });

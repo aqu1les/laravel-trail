@@ -52,7 +52,19 @@ class NavigationDetector
         }
 
         if ($request->headers->has('Sec-Fetch-Dest')) {
-            return $request->headers->get('Sec-Fetch-Dest') === 'document';
+            if ($request->headers->get('Sec-Fetch-Dest') !== 'document') {
+                return false;
+            }
+
+            // Chrome speculation rules (prefetch/prerender) and <link rel="prefetch">
+            // send Sec-Fetch-Dest: document for a page the actor may never open.
+            // Sec-Purpose carries "prefetch" or "prefetch;prerender"; older clients
+            // send the legacy Purpose: prefetch instead.
+            if (str_contains((string) $request->headers->get('Sec-Purpose'), 'prefetch')) {
+                return false;
+            }
+
+            return $request->headers->get('Purpose') !== 'prefetch';
         }
 
         // No Fetch Metadata at all: a pre-2023 browser, or a non-browser client.

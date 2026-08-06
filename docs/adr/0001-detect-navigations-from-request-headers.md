@@ -35,6 +35,12 @@ would delete nearly all page views in an Inertia app. Do not reintroduce it.
   nicety: Laravel's own test requests send no `Sec-Fetch-*`, and Symfony's `Request::create()` fills
   in `Accept: text/html,...`. Making the missing-header case restrictive instead of a fallback would
   fail the entire test suite and silently stop counting for any non-browser client.
+- **A prerendered page's real Navigation goes uncounted.** `Sec-Fetch-Dest: document` requests
+  carrying `Sec-Purpose: prefetch` or `prefetch;prerender` (or the legacy `Purpose: prefetch`) are
+  excluded so browser-level prefetch and prerender are not recorded as Navigations. When the actor
+  then navigates to a prerendered page, the browser serves it from cache without a second request,
+  so that genuine Navigation is never seen and is not counted. Accepted knowingly: counting every
+  speculative prefetch would be worse.
 - Recorded counts change for existing users of `auto_track.page_views`: Inertia and XHR-heavy apps
   count less, `wire:navigate` apps count more, because they were counting almost nothing before.
 

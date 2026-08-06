@@ -84,6 +84,16 @@ it('records a request the registered closure accepts', function () {
     expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
 });
 
+it('records a navigation to a normally ignored path when the ignore list is emptied', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', []);
+    Route::middleware(['web', TrackPageView::class])->get('/trail/events', fn () => 'ok');
+
+    $this->get('/trail/events', ['Sec-Fetch-Dest' => 'document'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
+});
+
 it('applies the ignore list even when a permissive closure is registered', function () {
     config()->set('trail.recorder', 'sync');
     config()->set('trail.auto_track.ignore', ['trail*']);
