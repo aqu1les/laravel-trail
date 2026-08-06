@@ -21,3 +21,30 @@ refactors that do not change documented behavior do not require doc updates.
 - Never use the em dash (`—`) or en dash (`–`) anywhere in this project or its GitHub wiki.
   Use a regular hyphen (`-`) or rewrite the sentence. This applies to code comments, docblocks,
   Markdown docs (`README.md`, `SPEC.md`, `docs/`), Blade templates, and the wiki pages.
+
+## Asking questions
+
+Ask one question at a time. Wait for the answer before asking the next one.
+
+This overrides any skill that batches questions into rounds (`/grilling` asks a whole
+frontier at once, for example). Keep the skill's substance - the recommended answer,
+the trade-offs, the reason the question exists - just deliver it one question per turn.
+If several questions are ready at once, ask the one that unblocks the most and hold
+the rest.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `aqu1les/laravel-trail`, driven by the `gh` CLI.
+See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, each named exactly as the skills name them.
+See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root.
+See `docs/agents/domain.md`.
