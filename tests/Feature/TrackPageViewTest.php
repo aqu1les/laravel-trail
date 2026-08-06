@@ -60,3 +60,39 @@ it('uses the configured event name for page views', function () {
 
     expect(TrailEvent::firstWhere('name', 'visit.tracked'))->not->toBeNull();
 });
+
+it('does not record a background fetch', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Route::middleware(['web', TrackPageView::class])->get('/api/stats', fn () => 'ok');
+
+    $this->get('/api/stats', ['Sec-Fetch-Dest' => 'empty'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
+});
+
+it('records a request the registered closure accepts', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Trail\Trail\Trail::trackPageViewsUsing(fn () => true);
+    Route::middleware(['web', TrackPageView::class])->get('/api/stats', fn () => 'ok');
+
+    $this->get('/api/stats', ['Sec-Fetch-Dest' => 'empty'])->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(1);
+
+    Trail\Trail\Trail::trackPageViewsUsing(null);
+});
+
+it('applies the ignore list even when a permissive closure is registered', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.auto_track.ignore', ['trail*']);
+    Trail\Trail\Trail::trackPageViewsUsing(fn () => true);
+    Route::middleware(['web', TrackPageView::class])->get('/trail/events', fn () => 'ok');
+
+    $this->get('/trail/events')->assertOk();
+
+    expect(TrailEvent::where('name', 'page.viewed')->count())->toBe(0);
+
+    Trail\Trail\Trail::trackPageViewsUsing(null);
+});
