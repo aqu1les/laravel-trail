@@ -16,6 +16,15 @@ evaluate whether it needs to be reflected in the `README.md` or the GitHub wiki
 (`wiki/`). If it does, update them as part of the same work. Internal-only
 refactors that do not change documented behavior do not require doc updates.
 
+`wiki/` is a git submodule, and a GitHub wiki has no branches: pushing it publishes
+immediately. So commit wiki changes on the feature branch, but do NOT push the wiki
+submodule until the pull request has merged to `main`. Until then the submodule
+pointer in the PR references a local-only commit, which is expected.
+
+`CHANGELOG.md` is generated from GitHub releases. Never edit it by hand and never
+include it in a feature branch. Release prose belongs in the PR body, which is what
+the generated notes are built from.
+
 ## Writing style
 
 - Never use the em dash (`—`) or en dash (`–`) anywhere in this project or its GitHub wiki.
