@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Trail\Trail;
 
+use Composer\InstalledVersions;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Foundation\CachesConfiguration;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Contracts\Redis\Factory as Redis;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Mcp\Server;
@@ -92,6 +94,38 @@ class TrailServiceProvider extends ServiceProvider
         $this->registerIngestFlush();
         $this->registerPageViewTracking();
         $this->registerDashboardMcp();
+        $this->registerAboutSection();
+    }
+
+    /**
+     * Add a Trail section to `php artisan about`.
+     *
+     * The closure defers every lookup until `about` actually runs. Secrets (the
+     * MCP token) are only ever reported as "set" / "not set".
+     */
+    private function registerAboutSection(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        $onOff = fn (bool $value): string => $value ? '<fg=green;options=bold>ENABLED</>' : '<fg=yellow;options=bold>OFF</>';
+
+        AboutCommand::add('Trail', fn (): array => [
+            'Version' => InstalledVersions::isInstalled('aqu1les/laravel-trail')
+                ? (string) InstalledVersions::getPrettyVersion('aqu1les/laravel-trail')
+                : 'unknown',
+            'Recorder' => (string) config('trail.recorder'),
+            'Connection' => (string) (config('trail.connection') ?? config('database.default')),
+            'Dashboard' => config('trail.register_routes', true)
+                ? '/'.ltrim((string) config('trail.path'), '/')
+                : 'routes not auto-registered',
+            'API' => AboutCommand::format((bool) config('trail.api.enabled'), console: $onOff),
+            'Page view tracking' => AboutCommand::format((bool) config('trail.auto_track.page_views'), console: $onOff),
+            'MCP dashboard' => AboutCommand::format((bool) config('trail.mcp.dashboard.enabled'), console: $onOff),
+            'MCP token' => filled(config('trail.mcp.dashboard.token')) ? 'set' : 'not set',
+            'Retention' => config('trail.retention.events_days').' days',
+        ]);
     }
 
     /**

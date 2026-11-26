@@ -434,6 +434,8 @@ A few of the knobs in `config/trail.php`:
 
 Because the config is published into your app, you override values by editing the file - no environment variables required for things like the subject model.
 
+To check the effective setup in any environment, run `php artisan about --only=trail`: it lists the version, recorder, connection, dashboard path, which features are on and whether an MCP token is set (never its value).
+
 ## Going to production
 
 Recording works the moment you install and add the trait. Two things still need *your* infrastructure, because the defaults favour performance over zero-setup:
