@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.3.0 - 2026-11-26
+
+### What's Changed
+
+* feat: seção do Trail no `php artisan about`. O comando passa a mostrar versão, recorder, conexão, path do dashboard, se API, page view tracking e Dashboard MCP estão ligados, se o token MCP está configurado (só "set"/"not set", nunca o valor) e a retenção de eventos. Use `php artisan about --only=trail`.
+* chore(deps): bump stefanzweifel/git-auto-commit-action para 7.2.1 by @dependabot in https://github.com/aqu1les/laravel-trail/pull/15
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.2.4...v1.3.0
+
 ## v1.2.4 - 2026-08-06
 
 ### What's Changed
