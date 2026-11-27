@@ -2,6 +2,18 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.4.0 - 2026-11-27
+
+### What's Changed
+
+* fix: suporte a `CarbonImmutable`. Apps com `Date::use(CarbonImmutable::class)` não dão mais TypeError no Overview, Events e Paths nem no `trail:aggregate` agendado. Todo tipo de data agora é `Carbon\CarbonInterface`, e as datas são criadas pela facade `Date`.
+* fix: limites no ingest (`POST /trail/api/ingest`). É pulado o evento com `session_id` acima de 255 caracteres, `value` fora de `decimal(20, 4)`, ou `properties` acima de `browser.max_properties_bytes` (8 KB) ou `browser.max_properties_depth` (5). Corpo acima de `browser.max_payload_bytes` (64 KB) recebe 413. Novas opções em `config/trail.php`.
+* fix: o cliente JS manda no máximo `maxBatch` eventos (padrão 50) por request e descarta o lote em 4xx definitivo (413/422/403), em vez de reenviar para sempre. Republique o cliente com `vendor:publish` para pegar a mudança.
+* fix: os componentes Livewire do painel rodam o gate de visualização em todo update, não só nas rotas.
+* feat: `withoutContext()` no builder, para não gravar o contexto automático da requisição em eventos sobre outra pessoa (webhook, lead de visitante). Por @aqu1les em https://github.com/aqu1les/laravel-trail/pull/20
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.3.0...v1.4.0
+
 ## v1.3.0 - 2026-11-26
 
 ### What's Changed
