@@ -188,11 +188,11 @@ class TrailServiceProvider extends ServiceProvider
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             if (config('trail.schedule.aggregate', true)) {
-                $schedule->command('trail:aggregate')->hourly();
+                $schedule->command('trail:aggregate')->hourly()->onOneServer()->withoutOverlapping();
             }
 
             if (config('trail.schedule.prune', true)) {
-                $schedule->command('trail:prune')->daily();
+                $schedule->command('trail:prune')->daily()->onOneServer()->withoutOverlapping();
             }
         });
     }

@@ -200,8 +200,9 @@ return [
     |--------------------------------------------------------------------------
     | Scheduling
     |--------------------------------------------------------------------------
-    | Trail auto-registers these on the scheduler. Set to false to manage them
-    | yourself in routes/console.php.
+    | Trail auto-registers these on the scheduler, with onOneServer() and
+    | withoutOverlapping() (both need a cache store that supports locks).
+    | Set to false to manage them yourself in routes/console.php.
     */
     'schedule' => [
         'aggregate' => true,
