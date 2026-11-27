@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Queries;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Carbon;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Models\TrailEvent;
 
@@ -34,9 +34,9 @@ final class EventStreamQuery
 
     private string $term = '';
 
-    private function __construct(private readonly Carbon $since) {}
+    private function __construct(private readonly CarbonInterface $since) {}
 
-    public static function inWindow(Carbon $since): self
+    public static function inWindow(CarbonInterface $since): self
     {
         return new self($since);
     }

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Mcp\Dashboard\Tools;
 
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Date;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
@@ -35,8 +36,8 @@ class MetricsTool extends Tool
             'limit' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $from = Carbon::parse($validated['from']);
-        $to = Carbon::parse($validated['to']);
+        $from = Date::parse($validated['from']);
+        $to = Date::parse($validated['to']);
         $period = $validated['period'] ?? 'day';
         $name = $validated['name'] ?? null;
         $limit = (int) ($validated['limit'] ?? 10);
@@ -91,7 +92,7 @@ class MetricsTool extends Tool
         ]);
     }
 
-    private function fromEvents(Carbon $from, Carbon $to, string $period, ?string $name, int $limit): ResponseFactory
+    private function fromEvents(CarbonInterface $from, CarbonInterface $to, string $period, ?string $name, int $limit): ResponseFactory
     {
         $inner = HttpRequest::create('/', 'GET', array_filter([
             'from' => $from->toIso8601String(),

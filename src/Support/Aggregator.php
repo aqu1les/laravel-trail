@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Support;
 
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Trail\Trail\Models\TrailAggregate;
 use Trail\Trail\Models\TrailEvent;
 
 class Aggregator
 {
-    public function aggregate(string $period, Carbon $from, Carbon $to): void
+    public function aggregate(string $period, CarbonInterface $from, CarbonInterface $to): void
     {
         $events = TrailEvent::query()
             ->whereBetween('occurred_at', [$from, $to])
@@ -50,7 +50,7 @@ class Aggregator
         );
     }
 
-    private function bucket(Carbon $at, string $period): Carbon
+    private function bucket(CarbonInterface $at, string $period): CarbonInterface
     {
         return match ($period) {
             'hour' => $at->copy()->startOfHour(),

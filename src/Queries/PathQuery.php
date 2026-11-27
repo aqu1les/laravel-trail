@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Queries;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Trail\Trail\Facades\Trail;
 use Trail\Trail\Models\TrailEvent;
 
@@ -72,9 +73,9 @@ final class PathQuery
 
     private bool $collapseRepeats = true;
 
-    private function __construct(private readonly Carbon $since) {}
+    private function __construct(private readonly CarbonInterface $since) {}
 
-    public static function inWindow(Carbon $since): self
+    public static function inWindow(CarbonInterface $since): self
     {
         return new self($since);
     }
@@ -165,7 +166,7 @@ final class PathQuery
      * repeated events (with collapseRepeats on) counts once, the same way a
      * rendered run counts as a single step.
      *
-     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}>, total: int, truncated: bool}
+     * @return array{rows: list<array{key: SubjectKey, steps: list<array{name: string, occurred_at: CarbonInterface, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}>, total: int, truncated: bool}
      */
     public function sequences(): array
     {
@@ -280,14 +281,14 @@ final class PathQuery
      * Reads via toBase(): only the four columns assemble() reads are selected,
      * and hydrating the properties/context JSON casts and the value decimal
      * cast (plus the Eloquent model itself) for up to EVENT_CAP rows is pure
-     * waste here. occurred_at is parsed back into a Carbon by hand as a
+     * waste here. occurred_at is parsed back into a CarbonInterface by hand as a
      * result (see parseTimestamp()).
      *
      * Reads one row past EVENT_CAP so truncation can be told from "exactly at
      * the cap", the same trick cohort() uses for SUBJECT_CAP.
      *
      * @param  list<string>  $cohort
-     * @return array{grouped: array<string, list<object{name: string, occurred_at: Carbon}>>, truncated: bool}
+     * @return array{grouped: array<string, list<object{name: string, occurred_at: CarbonInterface}>>, truncated: bool}
      */
     private function eventsFor(array $cohort): array
     {
@@ -340,34 +341,34 @@ final class PathQuery
     }
 
     /**
-     * Parse a raw occurred_at value from a toBase() read into a Carbon
+     * Parse a raw occurred_at value from a toBase() read into a CarbonInterface
      * instance. PDO does not agree with itself across drivers on what a
      * DATETIME column comes back as: SQLite and MySQL hand back a
      * "Y-m-d H:i:s[.u]" string, Postgres does the same but some configurations
      * (and some custom casts upstream) can hand back a DateTimeInterface
-     * instead. Carbon::parse() handles the string shapes both drivers use
+     * instead. Date::parse() handles the string shapes both drivers use
      * either way; the instanceof checks below only guard the case where the
      * value already arrived as a date object.
      */
-    private static function parseTimestamp(mixed $value): Carbon
+    private static function parseTimestamp(mixed $value): CarbonInterface
     {
-        if ($value instanceof Carbon) {
+        if ($value instanceof CarbonInterface) {
             return $value;
         }
 
         if ($value instanceof \DateTimeInterface) {
-            return Carbon::instance($value);
+            return Date::instance($value);
         }
 
-        return Carbon::parse((string) $value);
+        return Date::parse((string) $value);
     }
 
     /**
      * One subject's ordered events, cut into the path the screen renders.
      * Returns null when the subject does not belong on the screen at all.
      *
-     * @param  list<object{name: string, occurred_at: Carbon}>  $events  oldest first
-     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: Carbon, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}|null
+     * @param  list<object{name: string, occurred_at: CarbonInterface}>  $events  oldest first
+     * @return array{key: SubjectKey, steps: list<array{name: string, occurred_at: CarbonInterface, gap_seconds: int|null}>, completed: bool, truncated: bool, elided: int}|null
      */
     private function assemble(string $token, array $events): ?array
     {

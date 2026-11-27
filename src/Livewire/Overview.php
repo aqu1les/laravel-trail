@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -108,7 +109,7 @@ class Overview extends Component
     /** Resolve the chart window: [rollup period, since, whether rollups cover it]. */
     private function seriesWindow(): array
     {
-        $now = Carbon::now();
+        $now = Date::now();
         [$period, $n, $sub, $unit] = match ($this->granularity) {
             'hour' => ['hour', 12, 'subHours', 'hour'],
             'week' => ['week', 6, 'subWeeks', 'week'],
@@ -121,9 +122,9 @@ class Overview extends Component
     }
 
     /** Chart series from pre-computed rollups (a handful of rows). */
-    private function rollupSeries(string $period, Carbon $since): array
+    private function rollupSeries(string $period, CarbonInterface $since): array
     {
-        $now = Carbon::now();
+        $now = Date::now();
         [$n, $sub, $unit] = match ($period) {
             'hour' => [12, 'subHours', 'hour'],
             'week' => [6, 'subWeeks', 'week'],
@@ -143,7 +144,7 @@ class Overview extends Component
         return [$labels, $counts, array_sum($counts)];
     }
 
-    private function seriesLabel(Carbon $start, int $i): string
+    private function seriesLabel(CarbonInterface $start, int $i): string
     {
         return match ($this->granularity) {
             'hour' => $start->format('H'),
@@ -153,15 +154,15 @@ class Overview extends Component
     }
 
     /** Top events over the window, live (name + c). */
-    private function liveTopEventRows(Carbon $since)
+    private function liveTopEventRows(CarbonInterface $since)
     {
-        return Trail::events()->between($since, Carbon::now())->toBuilder()->reorder()
+        return Trail::events()->between($since, Date::now())->toBuilder()->reorder()
             ->selectRaw('name, count(*) as c')
             ->groupBy('name')->orderByDesc('c')->limit(6)->get();
     }
 
     /** Top events over the window, from rollups (name + c). */
-    private function rollupTopEventRows(string $period, Carbon $since)
+    private function rollupTopEventRows(string $period, CarbonInterface $since)
     {
         return TrailAggregate::query()->where('period', $period)->where('bucket', '>=', $since)
             ->selectRaw('name, sum(count) as c')
@@ -171,7 +172,7 @@ class Overview extends Component
     /** Per-bucket counts for the chart - one GROUP BY query, no row loading. */
     private function liveSeries(): array
     {
-        $now = Carbon::now();
+        $now = Date::now();
 
         // Weeks roll up from a single daily aggregate (<= 42 rows).
         if ($this->granularity === 'week') {
@@ -193,8 +194,8 @@ class Overview extends Component
         }
 
         [$unit, $n, $step, $fmt, $labelFn] = $this->granularity === 'hour'
-            ? ['hour', 12, 'subHours', 'Y-m-d H', fn (Carbon $d) => $d->format('H')]
-            : ['day', 7, 'subDays', 'Y-m-d', fn (Carbon $d) => ucfirst($d->locale('pt_BR')->isoFormat('ddd'))];
+            ? ['hour', 12, 'subHours', 'Y-m-d H', fn (CarbonInterface $d) => $d->format('H')]
+            : ['day', 7, 'subDays', 'Y-m-d', fn (CarbonInterface $d) => ucfirst($d->locale('pt_BR')->isoFormat('ddd'))];
 
         $since = (clone $now)->{$step}($n - 1)->startOf($unit);
         $grouped = $this->groupedCounts($since, $unit);
@@ -214,9 +215,9 @@ class Overview extends Component
      *
      * @return array<string,int> bucket key => count
      */
-    private function groupedCounts(Carbon $since, string $unit): array
+    private function groupedCounts(CarbonInterface $since, string $unit): array
     {
-        $builder = Trail::events()->between($since, Carbon::now())->toBuilder()->reorder();
+        $builder = Trail::events()->between($since, Date::now())->toBuilder()->reorder();
         $driver = (new TrailEvent)->getConnection()->getDriverName();
 
         $expr = match ([$driver, $unit]) {

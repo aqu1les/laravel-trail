@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
@@ -155,7 +155,7 @@ class Events extends Component
     }
 
     /** Lower bound of the selected period window. */
-    private function sinceAt(): Carbon
+    private function sinceAt(): CarbonInterface
     {
         return match ($this->since) {
             'today' => now()->startOfDay(),

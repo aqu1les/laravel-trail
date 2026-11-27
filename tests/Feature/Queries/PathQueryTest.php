@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Trail\Trail\Models\TrailEvent;
@@ -53,7 +54,7 @@ it('reconstructs a path in occurred_at order, with the gap between steps', funct
         // eventsFor() reads via toBase() now (stdClass rows, no Eloquent casts):
         // occurred_at must still come back as a real Carbon instance, on every
         // step, for every driver.
-        ->and($steps[0]['occurred_at'])->toBeInstanceOf(Carbon::class)
+        ->and($steps[0]['occurred_at'])->toBeInstanceOf(CarbonInterface::class)
         ->and($steps[2]['occurred_at']->eq($last->occurred_at))->toBeTrue();
 });
 

@@ -6,7 +6,7 @@ namespace Trail\Trail;
 
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Support\MorphType;
@@ -115,7 +115,7 @@ class PendingEvent
             'properties' => $properties ?: null,
             'context' => $context !== [] ? $context : null,
             'value' => $value,
-            'occurred_at' => $this->occurredAt !== null ? Carbon::instance($this->occurredAt) : Carbon::now(),
+            'occurred_at' => $this->occurredAt !== null ? Date::instance($this->occurredAt) : Date::now(),
         ]);
     }
 

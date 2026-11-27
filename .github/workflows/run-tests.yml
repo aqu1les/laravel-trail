@@ -66,6 +66,15 @@ jobs:
       - name: Execute tests
         run: vendor/bin/pest --ci
 
+      # Apps that call Date::use(CarbonImmutable::class) get immutable dates from
+      # now() and every Eloquent cast. Rerun the suite that way so a date mutated
+      # in place, or a parameter typed to the mutable Carbon, fails here.
+      - name: Execute tests with CarbonImmutable
+        if: matrix.os == 'ubuntu-latest'
+        run: vendor/bin/pest --ci
+        env:
+          TRAIL_TEST_IMMUTABLE: 1
+
   # The suite above runs on SQLite, whose LIKE is case-insensitive and whose
   # grammar forgives things Postgres does not. The dashboard emits real
   # driver-specific SQL, so run the same suite against each server we claim to

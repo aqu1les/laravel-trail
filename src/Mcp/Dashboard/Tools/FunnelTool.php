@@ -6,7 +6,7 @@ namespace Trail\Trail\Mcp\Dashboard\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\Types\Type;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
@@ -33,8 +33,8 @@ class FunnelTool extends Tool
 
         /** @var list<string> $steps */
         $steps = array_values($validated['steps']);
-        $from = isset($validated['from']) ? Carbon::parse($validated['from']) : null;
-        $to = isset($validated['to']) ? Carbon::parse($validated['to']) : null;
+        $from = isset($validated['from']) ? Date::parse($validated['from']) : null;
+        $to = isset($validated['to']) ? Date::parse($validated['to']) : null;
 
         $result = $report->build($steps, $from, $to);
         $result['provenance'] = Provenance::events();

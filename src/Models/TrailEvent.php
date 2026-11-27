@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -18,8 +18,8 @@ use Illuminate\Support\Str;
  * @property array<string, mixed>|null $properties
  * @property array<string, mixed>|null $context
  * @property float|null $value
- * @property Carbon $occurred_at
- * @property Carbon $created_at
+ * @property CarbonInterface $occurred_at
+ * @property CarbonInterface $created_at
  */
 class TrailEvent extends Model
 {

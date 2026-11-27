@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Tests;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Mcp\Server\McpServiceProvider;
 use Livewire\LivewireServiceProvider;
@@ -21,6 +23,20 @@ class TestCase extends Orchestra
         Factory::guessFactoryNamesUsing(
             fn (string $modelName) => 'Trail\\Trail\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
+
+        // TRAIL_TEST_IMMUTABLE=1 runs the whole suite the way an app that calls
+        // Date::use(CarbonImmutable::class) does, so a date mutated in place
+        // (a ->subDays() whose result is dropped) shows up as a wrong answer.
+        if (env('TRAIL_TEST_IMMUTABLE')) {
+            Date::use(CarbonImmutable::class);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        Date::useDefault();
+
+        parent::tearDown();
     }
 
     protected function getPackageProviders($app)

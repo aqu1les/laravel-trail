@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 
 /**
  * @property string $period
- * @property Carbon $bucket
+ * @property CarbonInterface $bucket
  * @property string $name
  * @property int $count
  * @property int $unique_subjects

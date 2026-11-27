@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Http\Controllers\Api;
 
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\RateLimiter;
 use Trail\Trail\Facades\Trail;
 
@@ -99,9 +100,9 @@ class IngestController
     /**
      * @param  array<string, mixed>  $event
      */
-    private function occurredAt(array $event): Carbon
+    private function occurredAt(array $event): CarbonInterface
     {
-        $now = Carbon::now();
+        $now = Date::now();
         $raw = $event['occurred_at'] ?? null;
 
         if (! is_string($raw) || $raw === '') {
@@ -109,7 +110,7 @@ class IngestController
         }
 
         try {
-            $parsed = Carbon::parse($raw);
+            $parsed = Date::parse($raw);
         } catch (\Throwable) {
             return $now;
         }
