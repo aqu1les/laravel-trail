@@ -19,8 +19,18 @@ class IngestController
     /** Clamp timestamps older than this back to "now" (seconds, ~30 days). */
     private const MAX_AGE_SECONDS = 2592000;
 
+    /** trail_events.session_id is a string(255) column. */
+    private const MAX_SESSION_ID_LENGTH = 255;
+
+    /** trail_events.value is decimal(20, 4): 16 integer digits at most. */
+    private const MAX_ABS_VALUE = 1e16;
+
     public function store(Request $request): JsonResponse
     {
+        if (strlen($request->getContent()) > (int) config('trail.browser.max_payload_bytes', 65536)) {
+            return response()->json(['message' => 'Payload Too Large.'], 413);
+        }
+
         $request->validate([
             'events' => ['required', 'array', 'min:1', 'max:'.(int) config('trail.browser.max_batch', 50)],
         ]);
@@ -82,19 +92,52 @@ class IngestController
             return false;
         }
 
-        if (isset($event['properties']) && ! is_array($event['properties'])) {
+        if (isset($event['properties']) && ! $this->isValidProperties($event['properties'])) {
             return false;
         }
 
-        if (isset($event['value']) && ! is_numeric($event['value'])) {
+        if (isset($event['value']) && ! $this->isValidValue($event['value'])) {
             return false;
         }
 
-        if (isset($event['session_id']) && ! is_string($event['session_id'])) {
+        if (isset($event['session_id']) && ! $this->isValidSessionId($event['session_id'])) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Properties land in a JSON column; cap their encoded size and nesting so
+     * one client cannot store arbitrarily large or deep documents.
+     */
+    private function isValidProperties(mixed $properties): bool
+    {
+        if (! is_array($properties)) {
+            return false;
+        }
+
+        $encoded = json_encode($properties, 0, max(1, (int) config('trail.browser.max_properties_depth', 5)));
+
+        return $encoded !== false
+            && strlen($encoded) <= (int) config('trail.browser.max_properties_bytes', 8192);
+    }
+
+    /** A value outside the decimal(20, 4) column would fail the insert later, in the queue. */
+    private function isValidValue(mixed $value): bool
+    {
+        if (! is_numeric($value)) {
+            return false;
+        }
+
+        $number = (float) $value;
+
+        return is_finite($number) && abs($number) < self::MAX_ABS_VALUE;
+    }
+
+    private function isValidSessionId(mixed $sessionId): bool
+    {
+        return is_string($sessionId) && mb_strlen($sessionId) <= self::MAX_SESSION_ID_LENGTH;
     }
 
     /**

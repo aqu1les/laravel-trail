@@ -124,6 +124,68 @@ it('drops the oldest events beyond maxBufferSize', async () => {
   client.destroy();
 });
 
+it('sends at most maxBatch events per request and flushes the rest in later requests', async () => {
+  env = installFakeEnv();
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0, maxBatch: 2 });
+  for (let i = 0; i < 5; i++) client.track('e' + i);
+
+  await client.flush();
+
+  const sizes = env.fetchMock.mock.calls.map(
+    (call) => JSON.parse((call as [string, RequestInit])[1].body as string).events.length,
+  );
+  expect(sizes).toEqual([2, 2, 1]);
+
+  client.destroy();
+});
+
+it('drops a batch the server rejects for good instead of retrying it forever', async () => {
+  for (const status of [413, 422]) {
+    env = installFakeEnv({ fetchOk: false, fetchStatus: status });
+
+    const client = createTrail({ flushAt: 99, flushInterval: 0 });
+    client.track('rejected');
+
+    await client.flush();
+    await client.flush();
+
+    expect(env.fetchMock).toHaveBeenCalledTimes(1);
+
+    client.destroy();
+    env.restore();
+    env = null;
+  }
+});
+
+it('retries a batch that was rate limited', async () => {
+  env = installFakeEnv({ fetchOk: false, fetchStatus: 429 });
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0 });
+  client.track('later');
+
+  await client.flush();
+  env.fetchMock.mockResolvedValue({ ok: true, status: 202 } as Response);
+  await client.flush();
+
+  expect(env.fetchMock).toHaveBeenCalledTimes(2);
+
+  client.destroy();
+});
+
+it('beacons at most maxBatch events per beacon', () => {
+  env = installFakeEnv();
+
+  const client = createTrail({ flushAt: 99, flushInterval: 0, maxBatch: 2 });
+  for (let i = 0; i < 3; i++) client.track('e' + i);
+
+  env.pagehideHandlers.forEach((cb) => cb());
+
+  expect(env.beaconMock).toHaveBeenCalledTimes(2);
+
+  client.destroy();
+});
+
 it('emits a page-view on Inertia navigate when autoPageViews is on', () => {
   env = installFakeEnv();
 

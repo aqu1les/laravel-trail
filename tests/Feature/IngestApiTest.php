@@ -212,3 +212,71 @@ it('still allows ingestion when only the view gate denies', function () {
     // ...but the read API is forbidden under the same locked view gate.
     $this->getJson('/trail/api/events')->assertForbidden();
 });
+
+it('skips an event whose session_id is longer than the column', function () {
+    $this->postJson('/trail/api/ingest', [
+        'events' => [
+            ['name' => 'too.long', 'session_id' => str_repeat('s', 256)],
+            ['name' => 'fits', 'session_id' => str_repeat('s', 255)],
+        ],
+    ])->assertStatus(202)->assertJsonPath('accepted', 1);
+
+    expect(TrailEvent::pluck('name')->all())->toBe(['fits']);
+});
+
+it('skips an event whose value does not fit the value column', function (mixed $value) {
+    $this->postJson('/trail/api/ingest', [
+        'events' => [
+            ['name' => 'out.of.range', 'value' => $value],
+            ['name' => 'fits', 'value' => 999999999999999.5],
+        ],
+    ])->assertStatus(202)->assertJsonPath('accepted', 1);
+
+    expect(TrailEvent::pluck('name')->all())->toBe(['fits']);
+})->with([
+    'too big' => [1e16],
+    'too small' => [-1e16],
+    'huge string' => ['1e308'],
+]);
+
+it('skips an event whose properties exceed the byte limit', function () {
+    config()->set('trail.browser.max_properties_bytes', 100);
+
+    $this->postJson('/trail/api/ingest', [
+        'events' => [
+            ['name' => 'too.big', 'properties' => ['blob' => str_repeat('x', 200)]],
+            ['name' => 'fits', 'properties' => ['ok' => true]],
+        ],
+    ])->assertStatus(202)->assertJsonPath('accepted', 1);
+
+    expect(TrailEvent::pluck('name')->all())->toBe(['fits']);
+});
+
+it('skips an event whose properties nest deeper than the limit', function () {
+    config()->set('trail.browser.max_properties_depth', 3);
+
+    $this->postJson('/trail/api/ingest', [
+        'events' => [
+            ['name' => 'too.deep', 'properties' => ['a' => ['b' => ['c' => ['d' => 1]]]]],
+            ['name' => 'fits', 'properties' => ['a' => ['b' => ['c' => 1]]]],
+        ],
+    ])->assertStatus(202)->assertJsonPath('accepted', 1);
+
+    expect(TrailEvent::pluck('name')->all())->toBe(['fits']);
+});
+
+it('rejects a request body larger than max_payload_bytes with 413', function () {
+    config()->set('trail.browser.max_payload_bytes', 1024);
+
+    $this->postJson('/trail/api/ingest', [
+        'events' => [['name' => 'big', 'properties' => ['blob' => str_repeat('x', 2048)]]],
+    ])->assertStatus(413);
+
+    expect(TrailEvent::count())->toBe(0);
+});
+
+it('ships sane defaults for the ingest limits', function () {
+    expect(config('trail.browser.max_payload_bytes'))->toBe(65536)
+        ->and(config('trail.browser.max_properties_bytes'))->toBe(8192)
+        ->and(config('trail.browser.max_properties_depth'))->toBe(5);
+});
