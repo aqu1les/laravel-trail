@@ -22,6 +22,8 @@ class PendingEvent
     /** @var array<string, mixed> */
     protected array $context = [];
 
+    protected bool $captureContext = true;
+
     protected ?string $recorder = null;
 
     protected ?DateTimeInterface $occurredAt = null;
@@ -68,6 +70,19 @@ class PendingEvent
         return $this;
     }
 
+    /**
+     * Skip the automatic request/console context for this event. Context passed
+     * to withContext() is still stored. Use it when the event is about someone
+     * other than whoever made the current request (a webhook, a visitor's form
+     * submission attributed to the page owner).
+     */
+    public function withoutContext(): static
+    {
+        $this->captureContext = false;
+
+        return $this;
+    }
+
     public function sync(): static
     {
         $this->recorder = 'sync';
@@ -103,7 +118,7 @@ class PendingEvent
     {
         $subject = $this->resolveSubject();
 
-        $context = array_merge($this->captureContext(), $this->context);
+        $context = array_merge($this->captureContext ? $this->captureContext() : [], $this->context);
 
         $subjectType = $subject !== null ? MorphType::of($subject) : null;
 

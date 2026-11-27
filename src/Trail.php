@@ -199,6 +199,11 @@ class Trail
         return $this->newPendingEvent()->withContext($context);
     }
 
+    public function withoutContext(): PendingEvent
+    {
+        return $this->newPendingEvent()->withoutContext();
+    }
+
     public function sync(): PendingEvent
     {
         return $this->newPendingEvent()->sync();

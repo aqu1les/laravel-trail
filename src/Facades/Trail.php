@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Trail\Trail\PendingEvent anonymous()
  * @method static \Trail\Trail\PendingEvent withSession(string $sessionId)
  * @method static \Trail\Trail\PendingEvent withContext(array<string, mixed> $context)
+ * @method static \Trail\Trail\PendingEvent withoutContext()
  * @method static \Trail\Trail\PendingEvent sync()
  * @method static \Trail\Trail\PendingEvent queue()
  * @method static \Trail\Trail\PendingEvent ingest()
