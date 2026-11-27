@@ -2,6 +2,17 @@
 
 All notable changes to `laravel-trail` will be documented in this file.
 
+## v1.4.1 - 2026-11-27
+
+### What's Changed
+
+* fix: o `trail:aggregate` agendado (`--since="2 days"`, de hora em hora) começava a janela no meio do dia e o `upsert` trocava a contagem cheia do dia mais antigo por uma parcial. Isso encolhia o gráfico e o top eventos do Overview lidos dos rollups. Agora a janela sempre cobre buckets inteiros do período (hour, day, week, month). Os rollups gravados errado se corrigem na próxima execução, enquanto o dia ainda estiver na janela. Para dias mais antigos, rode `php artisan trail:aggregate --since="30 days"` uma vez.
+* fix: `trail:aggregate` e `trail:prune` agendados pelo pacote rodam com `onOneServer()` e `withoutOverlapping()`. Os dois precisam de um cache store com locks atômicos.
+* fix: o `Aggregator` lê os eventos em lotes (`lazyById`) em vez de carregar a janela inteira na memória.
+* docs: o README do cliente JS publicado explica o alias `@/vendor/trail`. Em https://github.com/aqu1les/laravel-trail/pull/21
+
+**Full Changelog**: https://github.com/aqu1les/laravel-trail/compare/v1.4.0...v1.4.1
+
 ## v1.4.0 - 2026-11-27
 
 ### What's Changed
