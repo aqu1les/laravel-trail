@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 
 /**
  * Representative sample data for the dashboard screens.
@@ -251,20 +251,20 @@ final class Sample
     /** Clock label (HH:MM) from epoch-millis. */
     public static function clock(int $ts): string
     {
-        return Carbon::createFromTimestampMs($ts)->format('H:i');
+        return Date::createFromTimestampMs($ts)->format('H:i');
     }
 
     /** Full date (e.g. "03 jun 2026") from epoch-millis. */
     public static function fullDate(int $ts): string
     {
-        return Carbon::createFromTimestampMs($ts)->locale('pt_BR')->isoFormat('DD MMM YYYY');
+        return Date::createFromTimestampMs($ts)->locale('pt_BR')->isoFormat('DD MMM YYYY');
     }
 
     /** Day separator label: Hoje / Ontem / "Qua, 03 jun". */
     public static function dayLabel(int $ts): string
     {
-        $day = Carbon::createFromTimestampMs($ts)->startOfDay();
-        $diff = (int) $day->diffInDays(Carbon::today(), true);
+        $day = Date::createFromTimestampMs($ts)->startOfDay();
+        $diff = (int) $day->diffInDays(Date::today(), true);
 
         if ($diff === 0) {
             return 'Hoje';

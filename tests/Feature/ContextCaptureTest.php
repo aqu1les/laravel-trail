@@ -153,3 +153,22 @@ it('resolves custom context capture class from config', function () {
 
     expect($resolved->fromConsole())->toBe(['custom' => 'console']);
 });
+
+it('skips the captured context when withoutContext() is called', function () {
+    config()->set('trail.recorder', 'sync');
+    config()->set('trail.privacy', ['store_ip' => false, 'store_user_agent' => true]);
+
+    // A visitor's request records an event about someone else (a lead landing
+    // on the page owner): the visitor's url and user agent do not belong to it.
+    Route::middleware('web')->get('/lead-probe', function () {
+        Trail::withoutContext()->track('lead.captured');
+        Trail::withoutContext()->withContext(['source' => 'form'])->track('lead.tagged');
+
+        return 'ok';
+    });
+
+    $this->get('/lead-probe', ['User-Agent' => 'Visitor/1.0'])->assertOk();
+
+    expect(TrailEvent::firstWhere('name', 'lead.captured')->context)->toBeNull()
+        ->and(TrailEvent::firstWhere('name', 'lead.tagged')->context)->toBe(['source' => 'form']);
+});

@@ -26,6 +26,7 @@ export function createTrail(options: TrailOptions = {}): TrailClient {
   const flushAt = options.flushAt ?? 20;
   const flushInterval = options.flushInterval ?? 5000;
   const maxBufferSize = options.maxBufferSize ?? 1000;
+  const maxBatch = Math.max(1, options.maxBatch ?? 50);
   const pageViewEvent = options.pageViewEvent ?? 'page.viewed';
 
   let buffer: TrailEventInput[] = [];
@@ -50,11 +51,23 @@ export function createTrail(options: TrailOptions = {}): TrailClient {
     if (buffer.length >= flushAt) void flush();
   }
 
-  async function flush(): Promise<void> {
-    if (buffer.length === 0) return;
+  // A 4xx other than 408/429 means the server will never take this batch
+  // (oversized, malformed, forbidden); resending it would only block the queue.
+  function isRetryable(status: number): boolean {
+    return status < 400 || status >= 500 || status === 408 || status === 429;
+  }
 
-    const batch = buffer;
-    buffer = [];
+  async function flush(): Promise<void> {
+    while (buffer.length > 0) {
+      const sent = await sendOne();
+      if (!sent) return;
+    }
+  }
+
+  /** POST the oldest maxBatch events. Resolves false when the batch was re-queued. */
+  async function sendOne(): Promise<boolean> {
+    const batch = buffer.slice(0, maxBatch);
+    buffer = buffer.slice(maxBatch);
 
     const token = readCookie('XSRF-TOKEN');
 
@@ -71,28 +84,36 @@ export function createTrail(options: TrailOptions = {}): TrailClient {
         body: JSON.stringify({ events: batch }),
       });
 
-      if (!res.ok) {
+      if (!res.ok && isRetryable(res.status)) {
         // Keep-and-retry: re-queue the batch ahead of newer events, bounded.
         buffer = batch.concat(buffer).slice(-maxBufferSize);
+        return false;
       }
     } catch {
       buffer = batch.concat(buffer).slice(-maxBufferSize);
+      return false;
     }
+
+    return true;
   }
 
   function sendBeacon(): void {
-    if (buffer.length === 0) return;
     if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return;
 
-    const batch = buffer;
-    buffer = [];
-
     const token = readCookie('XSRF-TOKEN');
-    const payload = JSON.stringify({ events: batch, ...(token ? { _token: token } : {}) });
-    const blob = new Blob([payload], { type: 'application/json' });
 
-    const ok = navigator.sendBeacon(endpoint, blob);
-    if (!ok) buffer = batch.concat(buffer).slice(-maxBufferSize);
+    while (buffer.length > 0) {
+      const batch = buffer.slice(0, maxBatch);
+      buffer = buffer.slice(maxBatch);
+
+      const payload = JSON.stringify({ events: batch, ...(token ? { _token: token } : {}) });
+      const blob = new Blob([payload], { type: 'application/json' });
+
+      if (!navigator.sendBeacon(endpoint, blob)) {
+        buffer = batch.concat(buffer).slice(-maxBufferSize);
+        return;
+      }
+    }
   }
 
   const onVisibility = () => {

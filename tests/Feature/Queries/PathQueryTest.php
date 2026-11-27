@@ -2,12 +2,17 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\PathQuery;
 use Trail\Trail\Tests\Fixtures\Team;
 use Trail\Trail\Tests\Fixtures\User;
+
+// Seeds are relative to now ('-2 days +60 seconds'); a frozen clock keeps the
+// asserted gaps exact when the second ticks over between two seeds.
+beforeEach(fn () => $this->freezeTime());
 
 /** Seed one event for a User subject at an exact instant. */
 function seedPathEvent(int $subjectId, string $name, string $at): TrailEvent
@@ -53,7 +58,7 @@ it('reconstructs a path in occurred_at order, with the gap between steps', funct
         // eventsFor() reads via toBase() now (stdClass rows, no Eloquent casts):
         // occurred_at must still come back as a real Carbon instance, on every
         // step, for every driver.
-        ->and($steps[0]['occurred_at'])->toBeInstanceOf(Carbon::class)
+        ->and($steps[0]['occurred_at'])->toBeInstanceOf(CarbonInterface::class)
         ->and($steps[2]['occurred_at']->eq($last->occurred_at))->toBeTrue();
 });
 

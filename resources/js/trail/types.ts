@@ -21,6 +21,11 @@ export interface TrailOptions {
   flushInterval?: number;
   /** Hard cap on buffered events; oldest dropped beyond it. Default: 1000. */
   maxBufferSize?: number;
+  /**
+   * Most events sent in one request. Keep it at or below the server's
+   * trail.browser.max_batch. Default: 50.
+   */
+  maxBatch?: number;
   /** Emit a page-view event on Inertia navigations. Default: false. */
   autoPageViews?: boolean;
   /** Page-view event name when autoPageViews is on. Default: 'page.viewed'. */

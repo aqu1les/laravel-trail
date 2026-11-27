@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Support;
 
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
 use Trail\Trail\Models\TrailEvent;
 
 class FunnelReport
@@ -19,7 +19,7 @@ class FunnelReport
      * @param  list<string>  $steps
      * @return array{steps: list<array{name: string, count: int, rate: float, drop_off: int}>, overall_conversion: float}
      */
-    public function build(array $steps, ?Carbon $from = null, ?Carbon $to = null): array
+    public function build(array $steps, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
         /** @var list<string>|null $qualified */
         $qualified = null;
@@ -61,7 +61,7 @@ class FunnelReport
      *
      * @return array<int, string>
      */
-    private function subjectsForEvent(string $name, ?Carbon $from = null, ?Carbon $to = null): array
+    private function subjectsForEvent(string $name, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
         return TrailEvent::query()
             ->where('name', $name)

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Trail\Trail\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Trail\Trail\Support\Aggregator;
 
 class AggregateCommand extends Command
@@ -19,8 +19,8 @@ class AggregateCommand extends Command
     public function handle(Aggregator $aggregator): int
     {
         $period = (string) $this->option('period');
-        $from = Carbon::parse('-'.(string) $this->option('since'));
-        $to = Carbon::now();
+        $from = Date::parse('-'.(string) $this->option('since'));
+        $to = Date::now();
 
         $aggregator->aggregate($period, $from, $to);
 

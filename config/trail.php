@@ -102,6 +102,12 @@ return [
     | browser.recorder - recorder the ingest endpoint routes events through.
     |                    null = the global trail.recorder. Recommended: 'ingest'.
     | browser.max_batch      - max events accepted per request.
+    | browser.max_payload_bytes    - max request body size; larger bodies get 413.
+    | browser.max_properties_bytes - max JSON-encoded size of one event's properties.
+    | browser.max_properties_depth - max nesting depth of one event's properties.
+    |                    Events over a properties limit, with a session_id longer
+    |                    than 255 characters, or with a value outside the
+    |                    decimal(20, 4) column are skipped, not stored.
     | browser.rate_limit     - "attempts,minutes" per user / session / IP.
     | browser.allowed_events - optional event-name allowlist (null = allow any).
     */
@@ -113,6 +119,9 @@ return [
         'enabled' => env('TRAIL_BROWSER', true),
         'recorder' => null,
         'max_batch' => 50,
+        'max_payload_bytes' => 65536,
+        'max_properties_bytes' => 8192,
+        'max_properties_depth' => 5,
         'rate_limit' => '120,1',
         'allowed_events' => null,
     ],

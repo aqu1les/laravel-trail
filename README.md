@@ -141,6 +141,7 @@ Trail::sync()->track('payment.captured');
 | `anonymous()` | Record with no actor |
 | `withSession(string $id)` | Group events under a session id |
 | `withContext(array $context)` | Attach arbitrary context |
+| `withoutContext()` | Skip the automatic request/console context for this call |
 | `sync()` / `queue()` / `ingest()` | Override the recording mode for this call |
 | `track(string $name, array $properties = [], ?float $value = null)` | Write the event |
 
@@ -153,6 +154,8 @@ Trail fills the `context` field automatically - no extra code needed.
 During a routed **HTTP request** it captures `url`, `method`, and `referrer`, plus IP and user agent according to your `privacy` config. When UTM parameters are present in the query string, `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, and `utm_content` are also captured as flat context keys - only the ones actually present are included.
 
 In **Artisan commands and queue workers** it captures process-level attributes: `hostname`, `pid`, and `command` by default. `command_arguments` and `server_ip` are opt-in via `trail.console` (they can contain sensitive values). Your `withContext()` calls merge on top and win on conflicts.
+
+Call `withoutContext()` when the event is about someone other than whoever made the current request, such as a webhook or a visitor's form submission attributed to the page owner. The automatic context is skipped; anything you pass to `withContext()` is still stored.
 
 ## The actor is polymorphic
 

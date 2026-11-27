@@ -6,7 +6,7 @@ namespace Trail\Trail;
 
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use Trail\Trail\Contracts\ContextCaptureContract;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Support\MorphType;
@@ -21,6 +21,8 @@ class PendingEvent
 
     /** @var array<string, mixed> */
     protected array $context = [];
+
+    protected bool $captureContext = true;
 
     protected ?string $recorder = null;
 
@@ -68,6 +70,19 @@ class PendingEvent
         return $this;
     }
 
+    /**
+     * Skip the automatic request/console context for this event. Context passed
+     * to withContext() is still stored. Use it when the event is about someone
+     * other than whoever made the current request (a webhook, a visitor's form
+     * submission attributed to the page owner).
+     */
+    public function withoutContext(): static
+    {
+        $this->captureContext = false;
+
+        return $this;
+    }
+
     public function sync(): static
     {
         $this->recorder = 'sync';
@@ -103,7 +118,7 @@ class PendingEvent
     {
         $subject = $this->resolveSubject();
 
-        $context = array_merge($this->captureContext(), $this->context);
+        $context = array_merge($this->captureContext ? $this->captureContext() : [], $this->context);
 
         $subjectType = $subject !== null ? MorphType::of($subject) : null;
 
@@ -115,7 +130,7 @@ class PendingEvent
             'properties' => $properties ?: null,
             'context' => $context !== [] ? $context : null,
             'value' => $value,
-            'occurred_at' => $this->occurredAt !== null ? Carbon::instance($this->occurredAt) : Carbon::now(),
+            'occurred_at' => $this->occurredAt !== null ? Date::instance($this->occurredAt) : Date::now(),
         ]);
     }
 

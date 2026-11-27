@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Livewire;
 
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Trail\Trail\Livewire\Concerns\AuthorizesDashboard;
 use Trail\Trail\Queries\PathQuery;
 use Trail\Trail\Queries\SubjectIdentity;
 use Trail\Trail\Queries\SubjectKey;
 
 class Paths extends Component
 {
+    use AuthorizesDashboard;
+
     /** The periods the segmented control offers, as URL-safe tokens. */
     private const PERIODS = ['today', '7d', '30d'];
 
@@ -109,7 +112,7 @@ class Paths extends Component
     }
 
     /** Lower bound of the selected period window. */
-    private function sinceAt(): Carbon
+    private function sinceAt(): CarbonInterface
     {
         return match ($this->since) {
             'today' => now()->startOfDay(),

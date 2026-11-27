@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Trail\Trail\Mcp\Dashboard\Support;
 
-use Illuminate\Support\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Date;
 
 class Provenance
 {
@@ -17,7 +18,7 @@ class Provenance
     {
         $footer = [
             'source' => 'events',
-            'as_of' => Carbon::now()->toIso8601String(),
+            'as_of' => Date::now()->toIso8601String(),
             'truncated' => $truncated,
         ];
 
@@ -33,7 +34,7 @@ class Provenance
      *
      * @return array<string, mixed>
      */
-    public static function aggregates(?Carbon $lastAggregatedAt): array
+    public static function aggregates(?CarbonInterface $lastAggregatedAt): array
     {
         return [
             'source' => 'aggregates',
