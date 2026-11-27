@@ -10,6 +10,10 @@ use Trail\Trail\Queries\PathQuery;
 use Trail\Trail\Tests\Fixtures\Team;
 use Trail\Trail\Tests\Fixtures\User;
 
+// Seeds are relative to now ('-2 days +60 seconds'); a frozen clock keeps the
+// asserted gaps exact when the second ticks over between two seeds.
+beforeEach(fn () => $this->freezeTime());
+
 /** Seed one event for a User subject at an exact instant. */
 function seedPathEvent(int $subjectId, string $name, string $at): TrailEvent
 {
