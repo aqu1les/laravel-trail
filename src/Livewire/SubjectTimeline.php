@@ -8,6 +8,7 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
+use Trail\Trail\Livewire\Concerns\AuthorizesDashboard;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailEvent;
 use Trail\Trail\Queries\SubjectActivityQuery;
@@ -17,6 +18,7 @@ use Trail\Trail\Queries\SubjectKey;
 
 class SubjectTimeline extends Component
 {
+    use AuthorizesDashboard;
     use ResolvesEvents;
 
     private const INDEX_PER_PAGE = 25;

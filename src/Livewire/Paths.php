@@ -8,12 +8,15 @@ use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Trail\Trail\Livewire\Concerns\AuthorizesDashboard;
 use Trail\Trail\Queries\PathQuery;
 use Trail\Trail\Queries\SubjectIdentity;
 use Trail\Trail\Queries\SubjectKey;
 
 class Paths extends Component
 {
+    use AuthorizesDashboard;
+
     /** The periods the segmented control offers, as URL-safe tokens. */
     private const PERIODS = ['today', '7d', '30d'];
 

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Trail\Trail\Facades\Trail;
+use Trail\Trail\Livewire\Concerns\AuthorizesDashboard;
 use Trail\Trail\Livewire\Concerns\ResolvesEvents;
 use Trail\Trail\Models\TrailAggregate;
 use Trail\Trail\Models\TrailEvent;
@@ -19,6 +20,7 @@ use Trail\Trail\Queries\SubjectKey;
 
 class Overview extends Component
 {
+    use AuthorizesDashboard;
     use ResolvesEvents;
 
     /** The ranges the segmented control offers, as URL-safe tokens. */
